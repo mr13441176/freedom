@@ -23,9 +23,9 @@ Or to make with KeyStone:
 
 The maximum frequency for the VC707 board with the PCIE option is 125MHz, and without the PCIE option is 150MHz. Built files are under builds/vc707-u500devkit/obj/
 
-The built verilog source code: VC707Shell.v. The two files for flash programming: VC707Shell.mcs and VC707Shell.prm. And the FPGA bitstream file (for direct programming): VC707Shell.bit.
+The built verilog source code: VC707Shell.v. The two files for flash programming: VC707Shell.mcs and VC707Shell.prm. And the FPGA bitstream file for direct programming: VC707Shell.bit.
 
-Sometime the make mcs end with timing error and not continue to generate the final mcs files for flash programming, but still, it do generated the bit file. Then, we can manually generate the .mcs from the .bit:
+Sometime the make mcs end with timing error and not continue to generate the final mcs files for flash programming, but still, it does generated the bit file. Then, we can manually generate the .mcs from the .bit:
 
 	$ cd builds/vc707-u500devkit/obj/
 	(cd to the build folder)
