@@ -24,9 +24,9 @@ Modify the parameter "export pcie := yes/no" in the makefile of Makefile.vc707-u
 
 After the KeyStone make, there are two files **vc707zsbl.hex** and **vc707fsbl.bin** are generated in the folder **bootrom/freedom-u540-c000-bootloader/**
 
-The **vc707zsbl.hex** was already built-in in the bootrom's code of the hardware.
+The **vc707zsbl.hex** is the bootrom code of the hardware.
 
-The **vc707fsbl.bin** is meant to be coppied to the 4th partition of the SD card:
+And the **vc707fsbl.bin** is meant to be copied to the 4th partition of the SD card:
 
 	$ cd bootrom/freedom-u540-c000-bootloader/
 	$ sudo dd if=vc707fsbl.bin of=/dev/sdX4 bs=4096 conv=fsync
