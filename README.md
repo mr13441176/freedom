@@ -20,6 +20,13 @@ Or to make with KeyStone:
 	$ make -f Makefile.vc707-u500devkit-keystone verilog
 	$ make -f Makefile.vc707-u500devkit-keystone mcs
 
+If you want to clean things up:
+
+	for normal make
+	$ make -f Makefile.vc707-u500devkit clean
+	
+	for KeyStone make
+	$ make -f Makefile.vc707-u500devkit-keystone clean
 
 The maximum frequency for the VC707 board with the PCIE option is 125MHz, and without the PCIE option is 150MHz. Built files are under builds/vc707-u500devkit/obj/
 
