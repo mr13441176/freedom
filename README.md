@@ -44,7 +44,11 @@ And the **vc707fsbl.bin** is meant to be copied to the 4th partition of the SD c
 
 The maximum frequency for the VC707 board with the PCIE option is 125MHz, and without the PCIE option is 150MHz. Built files are under builds/vc707-u500devkit/obj/
 
-The built verilog source code: VC707Shell.v. The two files for flash programming: VC707Shell.mcs and VC707Shell.prm. And the FPGA bitstream file for direct programming: VC707Shell.bit.
+The important built files are:
+	
+	VC707Shell.v				the verilog source code
+	VC707Shell.mcs and VC707Shell.prm	the two files for flash programming
+	VC707Shell.bit				the bitstream file for direct programming
 
 Sometime the make mcs end with timing error and not continue to generate the final mcs files for flash programming, but still, it did generated the bit file. Then, we can manually generate the .mcs from the .bit:
 
