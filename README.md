@@ -12,12 +12,12 @@ Modified from https://github.com/sifive/freedom to make the VC707 FPGA board to 
 
 Modify the parameter "export pcie := yes/no" in the makefile of Makefile.vc707-u500devkit or Makefile.vc707-u500devkit-keystone.
 
-### For normal make (without KeyStone)
+### To build for normal make (without KeyStone)
 
 	$ make -f Makefile.vc707-u500devkit verilog
 	$ make -f Makefile.vc707-u500devkit mcs
 
-### For KeyStone make
+### To build for KeyStone make
 
 	$ make -f Makefile.vc707-u500devkit-keystone verilog
 	$ make -f Makefile.vc707-u500devkit-keystone mcs
