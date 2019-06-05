@@ -8,7 +8,7 @@ Modified from https://github.com/sifive/freedom to make the VC707 FPGA board to 
 	Then from this point forward, you can auto set your environment by simply:
 	$ . setenv.sh
 
-### To select the pcie build option
+### To select the PCIE build option
 
 Modify the parameter "export pcie := yes/no" in the makefile of Makefile.vc707-u500devkit or Makefile.vc707-u500devkit-keystone.
 
