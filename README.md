@@ -1,4 +1,4 @@
-Modified from https://github.com/sifive/freedom to make the VC707 FPGA board to work with the KeyStone project.
+Modified from [sifive-freedom](https://github.com/sifive/freedom) to make the VC707 FPGA board to work with the KeyStone project.
 
 ### To set your environment:
 
