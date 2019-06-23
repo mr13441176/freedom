@@ -1,3 +1,5 @@
+Modified from [sifive-freedom](https://github.com/sifive/freedom) to make the VC707 FPGA board to work with the KeyStone project.
+
 # Index
 
 - [Index](#index)
@@ -6,8 +8,6 @@
   * [II. a) Without KeyStone](#ii-a-without-keystone)
   * [II. b) With KeyStone](#ii-b-with-keystone)
 - [III. Notes](#iii-notes)
-
-Modified from [sifive-freedom](https://github.com/sifive/freedom) to make the VC707 FPGA board to work with the KeyStone project.
 
 # I. Set environment:
 
