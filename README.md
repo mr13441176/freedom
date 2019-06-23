@@ -4,12 +4,12 @@ Modified from [sifive-freedom](https://github.com/sifive/freedom) to make the VC
 
 - [Index](#index)
 - [I. Set Environment](#i-set-environment)
-- [II. To build](#ii-to-build)
+- [II. To Build](#ii-to-build)
   * [II. a) Without KeyStone](#ii-a-without-keystone)
   * [II. b) With KeyStone](#ii-b-with-keystone)
 - [III. Notes](#iii-notes)
 
-# I. Set environment
+# I. Set Environment
 
 	$ vi setenv.sh
 
@@ -21,7 +21,7 @@ Then change the correct paths in your machine. There are two paths for RISC-V gn
 
 Modify the parameter "**export pcie := yes/no**" in the makefile of **Makefile.vc707-u500devkit** or **Makefile.vc707-u500devkit-keystone**.
 
-# II. To build
+# II. To Build
 
 ### II. a) Without KeyStone
 
