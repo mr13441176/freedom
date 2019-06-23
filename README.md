@@ -9,7 +9,7 @@ Modified from [sifive-freedom](https://github.com/sifive/freedom) to make the VC
   * [II. b) With KeyStone](#ii-b-with-keystone)
 - [III. Notes](#iii-notes)
 
-# I. Set environment:
+# I. Set environment
 
 	$ vi setenv.sh
 
