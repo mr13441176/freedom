@@ -11,7 +11,7 @@ Modified from [sifive-freedom](https://github.com/sifive/freedom) to make the VC
 
 # I. Set environment:
 
-	**$ vi setenv.sh**
+	$ vi setenv.sh
 
 Then change the correct paths in your machine. There are two paths for RISC-V gnu toolchain and Vivado.	Then from this point forward, you can auto set your environment by simply:
 
