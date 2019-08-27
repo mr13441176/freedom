@@ -21,6 +21,7 @@ import sifive.blocks.devices.spi._
 import sifive.blocks.devices.uart._
 import sifive.blocks.devices.gpio._
 import sifive.blocks.devices.pinctrl.{BasePin}
+import uec.keystoneAcc.devices.sha3._
 
 import sifive.fpgashells.shell._
 import sifive.fpgashells.clocks._
@@ -116,6 +117,11 @@ class DevKitFPGADesign(wranglerNode: ClockAdapterNode)(implicit p: Parameters) e
     val g = GPIO.attach(GPIOAttachParams(gpio = params, pbus, ibus.fromAsync))
     g.ioNode.makeSink
   }
+
+  // SHA3
+  val sha3Params = p(PeripherySHA3Key)
+  val sha3 = SHA3.attach(SHA3AttachParams(gpio = sha3Params, pbus, ibus.fromAsync))
+  val sha3node = sha3.ioNode.makeSink
 
   val leds = p(LEDOverlayKey).headOption.map(_(LEDOverlayParams()))
 

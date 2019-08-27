@@ -12,6 +12,7 @@ import freechips.rocketchip.tile._
 import sifive.blocks.devices.gpio._
 import sifive.blocks.devices.spi._
 import sifive.blocks.devices.uart._
+import uec.keystoneAcc.devices.sha3._
 
 // Default FreedomU500Config
 class FreedomU500Config extends Config(
@@ -31,6 +32,8 @@ class U500DevKitPeripherals extends Config((site, here, up) => {
     GPIOParams(address = BigInt(0x64002000L), width = 4))
   case PeripheryMaskROMKey => List(
     MaskROMParams(address = 0x78000000, name = "BootROM"))
+  case PeripherySHA3Key =>
+    SHA3Params(address = BigInt(0x64003000L), width = 0)
 })
 
 // Freedom U500 Dev Kit

@@ -33,6 +33,10 @@ lazy val fpgaShells = (project in file("fpga-shells")).
   dependsOn(rocketChip, sifiveBlocks).
   settings(commonSettings: _*)
 
+lazy val keystoneAcc = (project in file("keystone-acc")).
+  dependsOn(rocketChip).
+  settings(commonSettings: _*)
+
 lazy val freedomPlatforms = (project in file(".")).
-  dependsOn(rocketChip, sifiveBlocks, nvdlaBlocks, fpgaShells).
+  dependsOn(rocketChip, sifiveBlocks, nvdlaBlocks, fpgaShells, keystoneAcc).
   settings(commonSettings: _*)
