@@ -12,4 +12,4 @@
 	url = https://github.com/sifive/nvidia-dla-blocks.git
 [submodule "freedom-u540-c000-bootloader"]
 	path = bootrom/freedom-u540-c000-bootloader
-	url = https://github.com/thuchoang90/freedom-u540-c000-bootloader.git
+	url = https://github.com/ckdur/freedom-u540-c000-bootloader.git
