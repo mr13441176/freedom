@@ -16,6 +16,7 @@ import uec.keystoneAcc.devices.sha3._
 
 // Default FreedomU500Config
 class FreedomU500Config extends Config(
+  new WithNBreakpoints(4)    ++
   new WithJtagDTM            ++
   new WithNMemoryChannels(1) ++
   new WithNBigCores(4)       ++
@@ -38,6 +39,7 @@ class U500DevKitPeripherals extends Config((site, here, up) => {
 
 // Freedom U500 Dev Kit
 class U500DevKitConfig extends Config(
+  new WithNBreakpoints(4)    ++
   new WithNExtTopInterrupts(0)   ++
   new U500DevKitPeripherals ++
   new FreedomU500Config().alter((site,here,up) => {

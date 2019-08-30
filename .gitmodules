@@ -6,10 +6,10 @@
 	url = https://github.com/sifive/sifive-blocks.git
 [submodule "fpga-shells"]
 	path = fpga-shells
-	url = https://github.com/sifive/fpga-shells
+	url = https://github.com/ckdur/fpga-shells
 [submodule "nvidia-dla-blocks"]
 	path = nvidia-dla-blocks
 	url = https://github.com/sifive/nvidia-dla-blocks.git
 [submodule "freedom-u540-c000-bootloader"]
 	path = bootrom/freedom-u540-c000-bootloader
-	url = https://github.com/thuchoang90/freedom-u540-c000-bootloader.git
+	url = https://github.com/ckdur/freedom-u540-c000-bootloader.git
