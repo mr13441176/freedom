@@ -1,15 +1,13 @@
 # See LICENSE for license details.
 base_dir := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
-BUILD_DIR := $(base_dir)/builds/vc707-u500devkit
+BUILD_DIR := $(base_dir)/builds/vc707-u500devkit-keystone
 FPGA_DIR := $(base_dir)/fpga-shells/xilinx
-PROJECT := sifive.fpgashells.shell.xilinx
+PROJECT := uec.keystoneAcc.fpgashells.shell.xilinx
 MODEL := VC707Shell
-export CONFIG_PROJECT := sifive.freedom.unleashed
+export CONFIG_PROJECT := uec.keystoneAcc.freedom.unleashed
 export CONFIG := DevKitU500FPGADesign_WithDevKit150MHz
 export BOARD := vc707
 export BOOTROM_DIR := $(base_dir)/bootrom/freedom-u540-c000-bootloader
-export keystone := yes
-export pcie := no
 KEYSTONE_ACC_DIR := $(base_dir)/keystone-acc
 SHA3_DIR := $(KEYSTONE_ACC_DIR)/vsrc/sha3
 SHA3_HIGHPERF_DIR := $(SHA3_DIR)/trunk/high_throughput_core

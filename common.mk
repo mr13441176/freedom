@@ -45,16 +45,6 @@ $(FIRRTL_JAR): $(shell find $(rocketchip_dir)/firrtl/src/main/scala -iname "*.sc
 # Build .fir
 firrtl := $(BUILD_DIR)/$(CONFIG_PROJECT).$(CONFIG).fir
 $(firrtl): $(shell find $(base_dir)/src/main/scala -name '*.scala') $(FIRRTL_JAR)
-ifeq ($(keystone),yes)
-	sed -i -e 's/MaskROMParams(address\s=\s0x10000/MaskROMParams(address = 0x78000000/g' src/main/scala/unleashed/DevKitConfigs.scala
-else
-	sed -i -e 's/MaskROMParams(address\s=\s0x78000000/MaskROMParams(address = 0x10000/g' src/main/scala/unleashed/DevKitConfigs.scala
-endif
-ifeq ($(pcie),yes)
-	sed -i -e 's/\/\/val\spcie\s\s\s\s\s\s=\sOverlay(PCIeOverlayKey)/  val pcie      = Overlay(PCIeOverlayKey)/g' fpga-shells/src/main/scala/shell/xilinx/VC707NewShell.scala
-else
-	sed -i -e 's/\s\sval\spcie\s\s\s\s\s\s=\sOverlay(PCIeOverlayKey)/\/\/val pcie      = Overlay(PCIeOverlayKey)/g' fpga-shells/src/main/scala/shell/xilinx/VC707NewShell.scala
-endif
 	mkdir -p $(dir $@)
 	$(SBT) "runMain freechips.rocketchip.system.Generator $(BUILD_DIR) $(PROJECT) $(MODEL) $(CONFIG_PROJECT) $(CONFIG)"
 

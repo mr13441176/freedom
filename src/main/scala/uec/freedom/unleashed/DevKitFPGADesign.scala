@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-package sifive.freedom.unleashed
+package uec.keystoneAcc.freedom.unleashed
 
 import Chisel._
 import chisel3.experimental.{withClockAndReset}
@@ -21,15 +21,12 @@ import sifive.blocks.devices.spi._
 import sifive.blocks.devices.uart._
 import sifive.blocks.devices.gpio._
 import sifive.blocks.devices.pinctrl.{BasePin}
+import uec.keystoneAcc.devices.sha3._
 
 import sifive.fpgashells.shell._
 import sifive.fpgashells.clocks._
 
-object PinGen {
-  def apply(): BasePin = {
-    new BasePin()
-  }
-}
+import sifive.freedom.unleashed.PinGen
 
 class DevKitWrapper()(implicit p: Parameters) extends LazyModule
 {
@@ -117,6 +114,11 @@ class DevKitFPGADesign(wranglerNode: ClockAdapterNode)(implicit p: Parameters) e
     g.ioNode.makeSink
   }
 
+  // SHA3
+  val sha3Params = p(PeripherySHA3Key)
+  val sha3 = SHA3.attach(SHA3AttachParams(gpio = sha3Params, pbus, ibus.fromAsync))
+  val sha3node = sha3.ioNode.makeSink
+
   val leds = p(LEDOverlayKey).headOption.map(_(LEDOverlayParams()))
 
   override lazy val module = new U500VC707DevKitSystemModule(this)
@@ -158,3 +160,10 @@ class DevKitU500FPGADesign extends Config(
   new U500DevKitConfig().alter((site, here, up) => {
     case DesignKey => { (p:Parameters) => new DevKitWrapper()(p) }
   }))
+
+class DevKitU500WithPCIeFPGADesign extends Config(
+  new U500DevKitConfig().alter((site,here,up) => {
+    case DesignKey => { (p:Parameters) => new DevKitWrapper()(p) }
+    case KeyIsPCIe => true
+  })
+)

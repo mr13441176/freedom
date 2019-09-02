@@ -1,5 +1,5 @@
 // See LICENSE for license details.
-package sifive.freedom.unleashed
+package uec.keystoneAcc.freedom.unleashed
 
 import freechips.rocketchip.config._
 import freechips.rocketchip.subsystem._
@@ -12,9 +12,13 @@ import freechips.rocketchip.tile._
 import sifive.blocks.devices.gpio._
 import sifive.blocks.devices.spi._
 import sifive.blocks.devices.uart._
+import uec.keystoneAcc.devices.sha3._
+
+case object KeyIsPCIe extends Field[Boolean]
 
 // Default FreedomU500Config
 class FreedomU500Config extends Config(
+  new WithNBreakpoints(4)    ++
   new WithJtagDTM            ++
   new WithNMemoryChannels(1) ++
   new WithNBigCores(4)       ++
@@ -30,14 +34,18 @@ class U500DevKitPeripherals extends Config((site, here, up) => {
   case PeripheryGPIOKey => List(
     GPIOParams(address = BigInt(0x64002000L), width = 4))
   case PeripheryMaskROMKey => List(
-    MaskROMParams(address = 0x10000, name = "BootROM"))
+    MaskROMParams(address = 0x78000000, name = "BootROM"))
+  case PeripherySHA3Key =>
+    SHA3Params(address = BigInt(0x64003000L), width = 0)
 })
 
 // Freedom U500 Dev Kit
 class U500DevKitConfig extends Config(
+  new WithNBreakpoints(4)    ++
   new WithNExtTopInterrupts(0)   ++
   new U500DevKitPeripherals ++
   new FreedomU500Config().alter((site,here,up) => {
+    case KeyIsPCIe => false
     case SystemBusKey => up(SystemBusKey).copy(
       errorDevice = Some(DevNullParams(
         Seq(AddressSet(0x3000, 0xfff)),
