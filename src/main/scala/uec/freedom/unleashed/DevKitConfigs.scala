@@ -34,7 +34,7 @@ class U500DevKitPeripherals extends Config((site, here, up) => {
   case PeripheryGPIOKey => List(
     GPIOParams(address = BigInt(0x64002000L), width = 4))
   case PeripheryMaskROMKey => List(
-    MaskROMParams(address = 0x78000000, name = "BootROM"))
+    MaskROMParams(address = 0x78000000, depth = 8192, name = "BootROM"))
   case PeripherySHA3Key =>
     SHA3Params(address = BigInt(0x64003000L), width = 0)
 })
