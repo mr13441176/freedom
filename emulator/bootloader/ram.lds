@@ -4,7 +4,7 @@ ENTRY( _start )
 
 MEMORY
 {
-  ram (wxa!ri) : ORIGIN = 0x80000000, LENGTH = 0x2000
+  ram (wxa!ri) : ORIGIN = 0x80000000, LENGTH = 0x10000
 }
 
 PHDRS
@@ -15,12 +15,15 @@ PHDRS
 
 SECTIONS
 {
-  __stack_size = DEFINED(__stack_size) ? __stack_size : 2k;
+  __stack_size = DEFINED(__stack_size) ? __stack_size : 4k;
 
   .init           :
   {
     KEEP (*(SORT_NONE(.init)))
   } >ram AT>ram :ram
+  
+  . = ALIGN(0x1000);
+  .tohost : { *(.tohost) } >ram AT>ram :ram
 
   .text           :
   {
