@@ -9,7 +9,7 @@
 #include "const.h"
 #include "devices/sha3.h"
 
-#define SHA3_CTRL_ADDR   _AC(0x64003000,UL)
+#define SHA3_CTRL_ADDR   _AC(0x10003000,UL)
 #define SHA3_CTRL_SIZE   _AC(0x1000,UL)
 
 // Helper functions

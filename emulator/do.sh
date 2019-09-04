@@ -1,6 +1,7 @@
 #!/bin/bash
-# Make the hardware
+# Make the hardware (Supported for debug as well)
 make
+make debug
 # Compile the bootloader (just a dummy bootloader)
 riscv64-unknown-elf-gcc -I./bootloader -I./bootloader/sha3 -c ./bootloader/start.S -o ./bootloader/start.o -march=rv64imafdc -mabi=lp64d -mcmodel=medany
 riscv64-unknown-elf-gcc -I./bootloader -I./bootloader/sha3 -c ./bootloader/main.c -o ./bootloader/main.o -march=rv64imafdc -mabi=lp64d -mcmodel=medany
