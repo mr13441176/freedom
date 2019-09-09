@@ -91,54 +91,38 @@ void hwsha3_init() {
 }
 
 void hwsha3_update(void* data, size_t size) {
-  uint64_t tmp;
-  byte* d = (byte*)data;
-  byte* t = (byte*)&tmp;
+  uint64_t* d = (uint64_t*)data;
+  SHA3_REG(SHA3_REG_STATUS) = 0;
   while(size >= 8) {
-    for(int i = 0; i < 8; i++) {
-      t[7-i] = d[i];
-    }
-    SHA3_REG64(SHA3_REG_DATA_0) = tmp;
-    SHA3_REG(SHA3_REG_STATUS) = 0;
+    SHA3_REG64(SHA3_REG_DATA_0) = *d;
     SHA3_REG(SHA3_REG_STATUS) = 1 << 16;
     size -= 8;
-    d += 8;
+    d += 1;
   }
   if(size > 0) {
-    for(int i = 0; i < size; i++) {
-      t[7-i] = d[i];
-    }
-    SHA3_REG64(SHA3_REG_DATA_0) = tmp;
+    SHA3_REG64(SHA3_REG_DATA_0) = *d;
     SHA3_REG(SHA3_REG_STATUS) = size & 0x7;
     SHA3_REG(SHA3_REG_STATUS) = 1 << 16;
   }
 }
 
 void hwsha3_final(byte* hash, void* data, size_t size) {
-  uint64_t tmp;
-  byte* d = (byte*)data;
-  byte* t = (byte*)&tmp;
+  uint64_t* d = (uint64_t*)data;
+  SHA3_REG(SHA3_REG_STATUS) = 0;
   while(size >= 8) {
-    for(int i = 0; i < 8; i++) {
-      t[7-i] = d[i];
-    }
     size -= 8;
-    SHA3_REG64(SHA3_REG_DATA_0) = tmp;
-    SHA3_REG(SHA3_REG_STATUS) = 0;
+    SHA3_REG64(SHA3_REG_DATA_0) = *d;
     SHA3_REG(SHA3_REG_STATUS) = size?(1 << 16):(3 << 16);
-    d += 8;
+    d += 1;
   }
   if(size > 0) {
-    for(int i = 0; i < size; i++) {
-      t[7-i] = d[i];
-    }
-    SHA3_REG64(SHA3_REG_DATA_0) = tmp;
+    SHA3_REG64(SHA3_REG_DATA_0) = *d;
     SHA3_REG(SHA3_REG_STATUS) = size & 0x7;
     SHA3_REG(SHA3_REG_STATUS) = 3 << 16;
   }
   while(SHA3_REG(SHA3_REG_STATUS) & (1 << 10));
-  for(int i = 0; i < 64; i++) {
-    *(((uint8_t*)hash) + 63 - i) = *(((uint8_t*)(SHA3_CTRL_ADDR+SHA3_REG_HASH_0)) + i);
+  for(int i = 0; i < 8; i++) {
+    *(((uint64_t*)hash) + i) = *(((uint64_t*)(SHA3_CTRL_ADDR+SHA3_REG_HASH_0)) + i);
   }
 }
 

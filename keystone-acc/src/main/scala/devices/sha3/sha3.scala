@@ -54,6 +54,8 @@ abstract class SHA3(busWidthBytes: Int, val c: SHA3Params, divisorInit: Int = 0)
     val data = Wire(UInt(64.W))
     val datas = Reg(Vec(2, UInt(32.W)))
     data := datas.asUInt
+    val datab = Wire(Vec(8, UInt(8.W)))
+    datab.zipWithIndex.foreach{case (b, i) => b := data((8-i)*8-1, (7-i)*8)}
 
     // Reg and Status
     val commit = WireInit(false.B)
@@ -81,13 +83,16 @@ abstract class SHA3(busWidthBytes: Int, val c: SHA3Params, divisorInit: Int = 0)
     val out_ready = Wire(Bool())
     out_notready := !out_ready
     val out = Wire(UInt(512.W))
-    val out_hash = out holdUnless out_ready
+    val outb = Wire(Vec(64, UInt(8.W)))
+    // Reorder the output hash
+    outb.zipWithIndex.foreach{case (b, i) => b := out((64-i)*8-1, (63-i)*8)}
+    val out_hash = outb.asUInt holdUnless out_ready
 
     // The Verilog module instantiation
     val core = Module(new keccak)
     core.io.clk := clock
     core.io.reset := reset.toBool() || rst
-    core.io.in := data
+    core.io.in := datab.asUInt
     core.io.in_ready := commit
     core.io.is_last := last
     core.io.byte_num := byte_num
