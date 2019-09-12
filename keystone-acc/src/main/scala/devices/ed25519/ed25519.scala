@@ -37,11 +37,13 @@ class curve25519_modular_multiplier extends BlackBox {
     val rst_n = Input(Bool())
     val ena = Input(Bool())
     val rdy = Output(Bool())
-    val k_addr = Output(UInt(3.W))
-    val qy_addr = Output(UInt(3.W))
-    val qy_wren = Output(Bool())
-    val k_din = Input(UInt(32.W))
-    val qy_dout = Output(UInt(32.W))
+    val a_addr = Output(UInt(3.W))
+    val b_addr = Output(UInt(3.W))
+    val p_addr = Output(UInt(3.W))
+    val p_wren = Output(Bool())
+    val a_din = Input(UInt(32.W))
+    val b_din = Input(UInt(32.W))
+    val p_dout = Output(UInt(32.W))
   })
 }
 
@@ -148,48 +150,74 @@ abstract class ed25519(busWidthBytes: Int, val c: ed25519Params)
 
     // Put actual hardware
     val busy = RegInit(false.B)
+    val busy2 = RegInit(false.B)
 
     // The memories
     val mem_k = SyncReadMem(8, UInt(32.W)) // Key memory
     val mem_qy = SyncReadMem(8, UInt(32.W)) // Result memory
+    val mem_a = SyncReadMem(8, UInt(32.W)) // A memory
+    val mem_b = SyncReadMem(8, UInt(32.W)) // B memory
+    val mem_c = SyncReadMem(8, UInt(32.W)) // C memory
 
     // Ports for the memories
     val tobram_k = Wire(new mem32IO) // Mem port to Key memory
     val tobram_qy = Wire(new mem32IO) // Mem port to Result memory
+    val tobram_a = Wire(new mem32IO) // Mem port to A memory
+    val tobram_b = Wire(new mem32IO) // Mem port to B memory
+    val tobram_c = Wire(new mem32IO) // Mem port to C memory
     val fromrmap_k = Wire(new mem32IO) // Register router to Key memory
     val fromrmap_qy = Wire(new mem32IO) // Register router to Result memory
+    val fromrmap_a = Wire(new mem32IO) // Register router to A memory
+    val fromrmap_b = Wire(new mem32IO) // Register router to B memory
+    val fromrmap_c = Wire(new mem32IO) // Register router to C memory
     val fromacc_k = Wire(new mem32IO) // From accelerator to Key memory
     val fromacc_qy = Wire(new mem32IO) // From accelerator to Result memory
+    val fromacc_a = Wire(new mem32IO) // From accelerator to A memory
+    val fromacc_b = Wire(new mem32IO) // From accelerator to B memory
+    val fromacc_c = Wire(new mem32IO) // From accelerator to C memory
 
     // Interconnections and muxing
     mem32mux(busy, fromacc_k, fromrmap_k, tobram_k)
     mem32mux(busy, fromacc_qy, fromrmap_qy, tobram_qy)
+    mem32mux(busy2, fromacc_a, fromrmap_a, tobram_a)
+    mem32mux(busy2, fromacc_b, fromrmap_b, tobram_b)
+    mem32mux(busy2, fromacc_c, fromrmap_c, tobram_c)
     fromrmap_k.q := BigInt(0xdeadce11L).U // Make the reading inaccessible for the key
     mem32IOtomem(tobram_k, mem_k)
     mem32IOtomem(tobram_qy, mem_qy)
+    mem32IOtomem(tobram_a, mem_a)
+    mem32IOtomem(tobram_b, mem_b)
+    mem32IOtomem(tobram_c, mem_c)
 
     // Create the RegMaps
     val k_regmap = memAndMap(fromrmap_k)
     val qy_regmap = memAndMap(fromrmap_qy)
+    val a_regmap = memAndMap(fromrmap_a)
+    val b_regmap = memAndMap(fromrmap_b)
+    val c_regmap = memAndMap(fromrmap_c)
     val ena = WireInit(false.B)
+    val ena2 = WireInit(false.B)
     val rdy = Wire(Bool())
+    val rdy2 = Wire(Bool())
     val reg_and_status = Seq(
       RegField(1, ena, RegFieldDesc("ena","Enable", reset = Some(0))),
       RegField.r(1, busy, RegFieldDesc("busy","Busy", volatile=true)),
       RegField.r(1, rdy, RegFieldDesc("rdy","Ready", volatile=true)),
     )
+    val reg_and_status2 = Seq(
+      RegField(1, ena2, RegFieldDesc("ena2","Enable", reset = Some(0))),
+      RegField.r(1, busy2, RegFieldDesc("busy2","Busy", volatile=true)),
+      RegField.r(1, rdy2, RegFieldDesc("rdy2","Ready", volatile=true)),
+    )
 
     // Busy logic
-    when(ena) {
-      busy := true.B
-    } .elsewhen(rdy) {
-      busy := false.B
-    }
+    when(ena) { busy := true.B } .elsewhen(rdy) { busy := false.B }
+    when(ena2) { busy2 := true.B } .elsewhen(rdy2) { busy2 := false.B }
 
     // The actual base multiplier
     val mult = Module(new ed25519_base_point_multiplier)
     mult.io.clk := clock
-    mult.io.rst_n := reset.toBool
+    mult.io.rst_n := !reset.toBool
     mult.io.ena := ena
     rdy := mult.io.rdy
     fromacc_k.addr := mult.io.k_addr
@@ -203,10 +231,36 @@ abstract class ed25519(busWidthBytes: Int, val c: ed25519Params)
     fromacc_qy.en := true.B
     // fromacc_qy.q ignored
 
+    // The actual modular multiplier
+    val mult2 = Module(new curve25519_modular_multiplier)
+    mult2.io.clk := clock
+    mult2.io.rst_n := !reset.toBool
+    mult2.io.ena := ena2
+    rdy2 := mult2.io.rdy
+    fromacc_a.addr := mult2.io.a_addr
+    mult2.io.a_din := fromacc_a.q
+    fromacc_a.en := true.B
+    fromacc_a.we := false.B
+    fromacc_a.d := BigInt(0xdeadbeefL).U
+    fromacc_b.addr := mult2.io.b_addr
+    mult2.io.b_din := fromacc_b.q
+    fromacc_b.en := true.B
+    fromacc_b.we := false.B
+    fromacc_b.d := BigInt(0xdeadbeefL).U
+    fromacc_c.addr := mult2.io.p_addr
+    fromacc_c.we := mult2.io.p_wren
+    fromacc_c.d := mult2.io.p_dout
+    fromacc_c.en := true.B
+    // fromacc_c.q ignored
+
     // Memory map registers
     regmap(
       ed25519CtrlRegs.key -> k_regmap,
       ed25519CtrlRegs.qy -> qy_regmap,
+      ed25519CtrlRegs.a -> a_regmap,
+      ed25519CtrlRegs.b -> b_regmap,
+      ed25519CtrlRegs.c -> c_regmap,
+      ed25519CtrlRegs.regstatus2 -> reg_and_status2,
       ed25519CtrlRegs.regstatus -> reg_and_status
     )
   }

@@ -1,6 +1,9 @@
 #include <string.h>
 #include "sha3.h"
 #include "platform.h"
+#include "ed25519.h"
+#include "ge.h"
+#include "ed25519_test_vectors_rfc8032.h"
 
 typedef unsigned char byte;
 
@@ -129,12 +132,11 @@ void hwsha3_final(byte* hash, void* data, size_t size) {
 // Main program
 
 int main(int argc, char** argv) {
-  sha3_ctx_t hash_ctx;
-  //void *uart = (void*)UART0_CTRL_ADDR;
+  //sha3_ctx_t hash_ctx;
   printstr("Hello world, FSBL\r\n");
   
   // Test the hardware with the software SHA3
-  byte hash[64];
+  /*byte hash[64];
   uint32_t* hs = (uint32_t*)hash;
   sha3_init(&hash_ctx, 64);
   sha3_update(&hash_ctx, (void*)"FOX1", 4);
@@ -147,6 +149,42 @@ int main(int argc, char** argv) {
   hwsha3_final(hash, (void*)"FOX1", 4);
   for(int i = 0; i < 16; i++) 
       printhex32(*(hs+i));
+  printstr("\r\n");*/
+  
+  unsigned int key[8] = ED25519_D_HASHED_LSB_1;
+  unsigned char *private_key = (unsigned char*) key;
+  
+  unsigned int pub1[8];
+  unsigned char *public_key_1 = (unsigned char*) pub1;
+  
+  unsigned int pub2[8];
+  unsigned char *public_key_2 = (unsigned char*) pub2;
+  
+  // Software
+  private_key[0] &= 248;
+  private_key[31] &= 63;
+  private_key[31] |= 64;
+  ge_p3 A;
+  ge_scalarmult_base(&A, private_key);
+  ge_p3_tobytes(public_key_1, &A);
+  printstr("Software signature\r\n");
+  for(int i = 0; i < 8; i++) 
+    printhex32(*(pub1+i));
+  
+  // Hardware
+  for(int i = 0; i < 8; i++) {
+    ED25519_REG(ED25519_REG_ADDR_K) = i;
+    ED25519_REG(ED25519_REG_DATA_K) = key[i];
+  }
+  ED25519_REG(ED25519_REG_STATUS) = 1;
+  while(!(ED25519_REG(ED25519_REG_STATUS) & 0x4));
+  for(int i = 0; i < 8; i++) {
+    ED25519_REG(ED25519_REG_ADDR_QY) = i;
+    pub2[i] = ED25519_REG(ED25519_REG_DATA_QY);
+  }
+  printstr("\r\nHardware signature\r\n");
+  for(int i = 0; i < 8; i++) 
+    printhex32(*(pub2+i));
   printstr("\r\n");
   
   tohost_exit(0);

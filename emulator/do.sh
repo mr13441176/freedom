@@ -3,12 +3,21 @@
 make
 make debug
 # Compile the bootloader (just a dummy bootloader)
-riscv64-unknown-elf-gcc -I./bootloader -I./bootloader/sha3 -c ./bootloader/start.S -o ./bootloader/start.o -march=rv64imafdc -mabi=lp64d -mcmodel=medany
-riscv64-unknown-elf-gcc -I./bootloader -I./bootloader/sha3 -c ./bootloader/main.c -o ./bootloader/main.o -march=rv64imafdc -mabi=lp64d -mcmodel=medany
-riscv64-unknown-elf-gcc -I./bootloader -I./bootloader/sha3 -c ./bootloader/sha3/sha3.c -o ./bootloader/sha3/sha3.o -march=rv64imafdc -mabi=lp64d -mcmodel=medany
-riscv64-unknown-elf-gcc -I./bootloader -I./bootloader/sha3 -c ./bootloader/memcpy.c -o ./bootloader/memcpy.o -march=rv64imafdc -mabi=lp64d -mcmodel=medany
-riscv64-unknown-elf-gcc -I./bootloader -I./bootloader/sha3 -c ./bootloader/strlen.c -o ./bootloader/strlen.o -march=rv64imafdc -mabi=lp64d -mcmodel=medany
-riscv64-unknown-elf-gcc ./bootloader/start.o ./bootloader/main.o ./bootloader/sha3/sha3.o ./bootloader/memcpy.o ./bootloader/strlen.o -o ./bootloader/boot.elf -march=rv64imafdc -mabi=lp64d -Os -nostartfiles -nostdlib -Wl,-Bstatic,-T,./bootloader/ram.lds,-Map,./bootloader/boot.map,--strip-debug
+INCLUDE="-I./bootloader -I./bootloader/sha3 -I./bootloader/ed25519"
+CFLAGS="-march=rv64imafdc -mabi=lp64d -mcmodel=medany"
+LDFLAGS="-march=rv64imafdc -mabi=lp64d -Os -nostartfiles -nostdlib -Wl,-Bstatic,-T,./bootloader/ram.lds,-Map,./bootloader/boot.map,--strip-debug"
+riscv64-unknown-elf-gcc $INCLUDE -c ./bootloader/start.S -o ./bootloader/start.o $CFLAGS
+riscv64-unknown-elf-gcc $INCLUDE -c ./bootloader/main.c -o ./bootloader/main.o $CFLAGS
+riscv64-unknown-elf-gcc $INCLUDE -c ./bootloader/sha3/sha3.c -o ./bootloader/sha3/sha3.o $CFLAGS
+riscv64-unknown-elf-gcc $INCLUDE -c ./bootloader/ed25519/keypair.c -o ./bootloader/ed25519/keypair.o $CFLAGS
+riscv64-unknown-elf-gcc $INCLUDE -c ./bootloader/ed25519/sc.c -o ./bootloader/ed25519/sc.o $CFLAGS
+riscv64-unknown-elf-gcc $INCLUDE -c ./bootloader/ed25519/sign.c -o ./bootloader/ed25519/sign.o $CFLAGS
+riscv64-unknown-elf-gcc $INCLUDE -c ./bootloader/ed25519/fe.c -o ./bootloader/ed25519/fe.o $CFLAGS
+riscv64-unknown-elf-gcc $INCLUDE -c ./bootloader/ed25519/ge.c -o ./bootloader/ed25519/ge.o $CFLAGS
+riscv64-unknown-elf-gcc $INCLUDE -c ./bootloader/ed25519/verify.c -o ./bootloader/ed25519/verify.o $CFLAGS
+riscv64-unknown-elf-gcc $INCLUDE -c ./bootloader/memcpy.c -o ./bootloader/memcpy.o $CFLAGS
+riscv64-unknown-elf-gcc $INCLUDE -c ./bootloader/strlen.c -o ./bootloader/strlen.o $CFLAGS
+riscv64-unknown-elf-gcc ./bootloader/start.o ./bootloader/main.o ./bootloader/sha3/sha3.o ./bootloader/memcpy.o ./bootloader/strlen.o ./bootloader/ed25519/keypair.o ./bootloader/ed25519/sc.o ./bootloader/ed25519/sign.o ./bootloader/ed25519/fe.o ./bootloader/ed25519/ge.o ./bootloader/ed25519/verify.o -o ./bootloader/boot.elf $LDFLAGS
 # Just dump the assembly, for fun
 riscv64-unknown-elf-objdump -D ./bootloader/boot.elf -M no-aliases,numeric > ./bootloader/boot.noaliases.dump
 riscv64-unknown-elf-objdump -D ./bootloader/boot.elf > ./bootloader/boot.dump

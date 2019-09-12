@@ -8,9 +8,12 @@
 
 #include "const.h"
 #include "devices/sha3.h"
+#include "devices/ed25519.h"
 
 #define SHA3_CTRL_ADDR   _AC(0x10003000,UL)
 #define SHA3_CTRL_SIZE   _AC(0x1000,UL)
+#define ED25519_CTRL_ADDR   _AC(0x10004000,UL)
+#define ED25519_CTRL_SIZE   _AC(0x1000,UL)
 
 // Helper functions
 #define _REG64(p, i) (*(volatile uint64_t *)((p) + (i)))
@@ -24,6 +27,8 @@
 
 #define SHA3_REG(offset) _REG32(SHA3_CTRL_ADDR, offset)
 #define SHA3_REG64(offset) _REG64(SHA3_CTRL_ADDR, offset)
+#define ED25519_REG(offset) _REG32(ED25519_CTRL_ADDR, offset)
+#define ED25519_REG64(offset) _REG64(ED25519_CTRL_ADDR, offset)
 
 // Helpers for getting and setting individual bit fields, shifting the values
 // for you.
