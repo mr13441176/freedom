@@ -129,7 +129,7 @@ class TLSHA3(busWidthBytes: Int, params: SHA3Params)(implicit p: Parameters)
   extends SHA3(busWidthBytes, params) with HasTLControlRegMap
 
 case class SHA3AttachParams(
-   gpio: SHA3Params,
+   sha3par: SHA3Params,
    controlBus: TLBusWrapper,
    intNode: IntInwardNode,
    controlXType: ClockCrossingType = NoCrossing,
@@ -149,7 +149,7 @@ object SHA3 {
     implicit val p = params.p
     val name = s"sha3 ${nextId()}"
     val cbus = params.controlBus
-    val sha3 = LazyModule(new TLSHA3(cbus.beatBytes, params.gpio))
+    val sha3 = LazyModule(new TLSHA3(cbus.beatBytes, params.sha3par))
     sha3.suggestName(name)
 
     cbus.coupleTo(s"device_named_$name") {

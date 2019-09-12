@@ -4,6 +4,7 @@
 KEYSTONE_ACC_DIR = $(base_dir)/keystone-acc
 SHA3_DIR = $(KEYSTONE_ACC_DIR)/vsrc/sha3
 SHA3_HIGHPERF_DIR = $(SHA3_DIR)/trunk/high_throughput_core
+ED25519_DIR = $(KEYSTONE_ACC_DIR)/vsrc/ed25519
 firrtl = $(generated_dir)/$(long_name).fir
 verilog = \
   $(generated_dir)/$(long_name).v \
@@ -13,7 +14,25 @@ verilog = \
 	$(SHA3_HIGHPERF_DIR)/rtl/padder1.v \
 	$(SHA3_HIGHPERF_DIR)/rtl/keccak.v \
 	$(SHA3_HIGHPERF_DIR)/rtl/padder.v \
-	$(SHA3_HIGHPERF_DIR)/rtl/rconst2in1.v
+	$(SHA3_HIGHPERF_DIR)/rtl/rconst2in1.v \
+	$(ED25519_DIR)/rtl/mac16_generic.v \
+	$(ED25519_DIR)/rtl/ed25519_microcode_rom.v \
+	$(ED25519_DIR)/rtl/ed25519_operand_bank.v \
+	$(ED25519_DIR)/rtl/adder47_generic.v \
+	$(ED25519_DIR)/rtl/ed25519_uop_worker.v \
+	$(ED25519_DIR)/rtl/subtractor32_generic.v \
+	$(ED25519_DIR)/rtl/ed25519_wrapper.v \
+	$(ED25519_DIR)/rtl/ed25519_core_top.v \
+	$(ED25519_DIR)/rtl/bram_1rw_1ro_readfirst.v \
+	$(ED25519_DIR)/rtl/bram_1rw_readfirst.v \
+	$(ED25519_DIR)/rtl/bram_1wo_1ro_readfirst.v \
+	$(ED25519_DIR)/rtl/ed25519_base_point_multiplier.v \
+	$(ED25519_DIR)/rtl/curve25519_modular_multiplier.v \
+	$(ED25519_DIR)/rtl/ed25519_banks_array.v \
+	$(ED25519_DIR)/rtl/modular_adder.v \
+	$(ED25519_DIR)/rtl/modular_subtractor.v \
+	$(ED25519_DIR)/rtl/adder32_generic.v \
+	$(ED25519_DIR)/rtl/multiword_mover.v
 
 .SECONDARY: $(firrtl) $(verilog)
 
@@ -69,8 +88,9 @@ VERILATOR_FLAGS := --top-module $(MODEL) \
   --output-split 20000 \
   --output-split-cfuncs 20000 \
   --threads $(VERILATOR_THREADS) -Wno-UNOPTTHREADS \
-	-Wno-STMTDLY --x-assign unique \
+	-Wno-STMTDLY -Wno-WIDTH --x-assign unique \
   -I$(vsrc) \
+  -I$(ED25519_DIR)/rtl \
   -O3 -CFLAGS "$(CXXFLAGS) -DVERILATOR -DTEST_HARNESS=V$(MODEL) -include $(csrc)/verilator.h -include $(generated_dir)/$(PROJECT).$(CONFIG).plusArgs"
 cppfiles = $(addprefix $(csrc)/, $(addsuffix .cc, $(CXXSRCS)))
 headers = $(wildcard $(csrc)/*.h)

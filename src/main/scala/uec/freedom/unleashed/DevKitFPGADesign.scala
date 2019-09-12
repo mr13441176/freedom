@@ -3,8 +3,7 @@
 package uec.keystoneAcc.freedom.unleashed
 
 import Chisel._
-import chisel3.experimental.{withClockAndReset}
-
+import chisel3.experimental.withClockAndReset
 import freechips.rocketchip.config._
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.devices.debug._
@@ -13,19 +12,17 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.system._
-import freechips.rocketchip.util.{ElaborationArtefacts,ResetCatchAndSync}
-
+import freechips.rocketchip.util.{ElaborationArtefacts, ResetCatchAndSync}
 import sifive.blocks.devices.msi._
 import sifive.blocks.devices.chiplink._
 import sifive.blocks.devices.spi._
 import sifive.blocks.devices.uart._
 import sifive.blocks.devices.gpio._
-import sifive.blocks.devices.pinctrl.{BasePin}
+import sifive.blocks.devices.pinctrl.BasePin
 import uec.keystoneAcc.devices.sha3._
-
+import uec.keystoneAcc.devices.ed25519._
 import sifive.fpgashells.shell._
 import sifive.fpgashells.clocks._
-
 import sifive.freedom.unleashed.PinGen
 
 class DevKitWrapper()(implicit p: Parameters) extends LazyModule
@@ -116,8 +113,13 @@ class DevKitFPGADesign(wranglerNode: ClockAdapterNode)(implicit p: Parameters) e
 
   // SHA3
   val sha3Params = p(PeripherySHA3Key)
-  val sha3 = SHA3.attach(SHA3AttachParams(gpio = sha3Params, pbus, ibus.fromAsync))
+  val sha3 = SHA3.attach(SHA3AttachParams(sha3par = sha3Params, pbus, ibus.fromAsync))
   val sha3node = sha3.ioNode.makeSink
+
+  // Ed25519
+  val ed25519Params = p(Peripheryed25519Key)
+  val ed25519a = ed25519.attach(ed25519AttachParams(ed25519par = ed25519Params, pbus, ibus.fromAsync))
+  val ed25519node = ed25519a.ioNode.makeSink
 
   val leds = p(LEDOverlayKey).headOption.map(_(LEDOverlayParams()))
 

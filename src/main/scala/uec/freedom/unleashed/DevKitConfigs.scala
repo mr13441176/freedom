@@ -8,10 +8,10 @@ import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.system._
 import freechips.rocketchip.tile._
-
 import sifive.blocks.devices.gpio._
 import sifive.blocks.devices.spi._
 import sifive.blocks.devices.uart._
+import uec.keystoneAcc.devices.ed25519._
 import uec.keystoneAcc.devices.sha3._
 
 case object KeyIsPCIe extends Field[Boolean]
@@ -37,6 +37,8 @@ class U500DevKitPeripherals extends Config((site, here, up) => {
     MaskROMParams(address = 0x78000000, depth = 8192, name = "BootROM"))
   case PeripherySHA3Key =>
     SHA3Params(address = BigInt(0x64003000L), width = 0)
+  case Peripheryed25519Key =>
+    ed25519Params(address = BigInt(0x64004000L), width = 0)
 })
 
 // Freedom U500 Dev Kit
