@@ -154,6 +154,7 @@ abstract class ed25519(busWidthBytes: Int, val c: ed25519Params)
 
     // The memories
     val mem_k = SyncReadMem(8, UInt(32.W)) // Key memory
+    val mem_k2 = SyncReadMem(8, UInt(32.W)) // Key2 memory
     val mem_qy = SyncReadMem(8, UInt(32.W)) // Result memory
     val mem_a = SyncReadMem(8, UInt(32.W)) // A memory
     val mem_b = SyncReadMem(8, UInt(32.W)) // B memory
@@ -161,16 +162,19 @@ abstract class ed25519(busWidthBytes: Int, val c: ed25519Params)
 
     // Ports for the memories
     val tobram_k = Wire(new mem32IO) // Mem port to Key memory
+    val tobram_k2 = Wire(new mem32IO) // Mem port to Key2 memory
     val tobram_qy = Wire(new mem32IO) // Mem port to Result memory
     val tobram_a = Wire(new mem32IO) // Mem port to A memory
     val tobram_b = Wire(new mem32IO) // Mem port to B memory
     val tobram_c = Wire(new mem32IO) // Mem port to C memory
     val fromrmap_k = Wire(new mem32IO) // Register router to Key memory
+    val fromrmap_k2 = Wire(new mem32IO) // Register router to Key2 memory
     val fromrmap_qy = Wire(new mem32IO) // Register router to Result memory
     val fromrmap_a = Wire(new mem32IO) // Register router to A memory
     val fromrmap_b = Wire(new mem32IO) // Register router to B memory
     val fromrmap_c = Wire(new mem32IO) // Register router to C memory
     val fromacc_k = Wire(new mem32IO) // From accelerator to Key memory
+    val fromacc_k2 = Wire(new mem32IO) // From accelerator to Key2 memory
     val fromacc_qy = Wire(new mem32IO) // From accelerator to Result memory
     val fromacc_a = Wire(new mem32IO) // From accelerator to A memory
     val fromacc_b = Wire(new mem32IO) // From accelerator to B memory
@@ -178,12 +182,15 @@ abstract class ed25519(busWidthBytes: Int, val c: ed25519Params)
 
     // Interconnections and muxing
     mem32mux(busy, fromacc_k, fromrmap_k, tobram_k)
+    mem32mux(busy, fromacc_k2, fromrmap_k2, tobram_k2)
     mem32mux(busy, fromacc_qy, fromrmap_qy, tobram_qy)
     mem32mux(busy2, fromacc_a, fromrmap_a, tobram_a)
     mem32mux(busy2, fromacc_b, fromrmap_b, tobram_b)
     mem32mux(busy2, fromacc_c, fromrmap_c, tobram_c)
     fromrmap_k.q := BigInt(0xdeadce11L).U // Make the reading inaccessible for the key
+    fromrmap_k2.q := BigInt(0xdeadce11L).U // Make the reading inaccessible for the key
     mem32IOtomem(tobram_k, mem_k)
+    mem32IOtomem(tobram_k2, mem_k2)
     mem32IOtomem(tobram_qy, mem_qy)
     mem32IOtomem(tobram_a, mem_a)
     mem32IOtomem(tobram_b, mem_b)
@@ -191,6 +198,7 @@ abstract class ed25519(busWidthBytes: Int, val c: ed25519Params)
 
     // Create the RegMaps
     val k_regmap = memAndMap(fromrmap_k)
+    val k2_regmap = memAndMap(fromrmap_k2)
     val qy_regmap = memAndMap(fromrmap_qy)
     val a_regmap = memAndMap(fromrmap_a)
     val b_regmap = memAndMap(fromrmap_b)
@@ -199,10 +207,12 @@ abstract class ed25519(busWidthBytes: Int, val c: ed25519Params)
     val ena2 = WireInit(false.B)
     val rdy = Wire(Bool())
     val rdy2 = Wire(Bool())
+    val wk = RegInit(false.B)
     val reg_and_status = Seq(
       RegField(1, ena, RegFieldDesc("ena","Enable", reset = Some(0))),
       RegField.r(1, busy, RegFieldDesc("busy","Busy", volatile=true)),
       RegField.r(1, rdy, RegFieldDesc("rdy","Ready", volatile=true)),
+      RegField(1, wk, RegFieldDesc("wk","Which k", reset = Some(0))),
     )
     val reg_and_status2 = Seq(
       RegField(1, ena2, RegFieldDesc("ena2","Enable", reset = Some(0))),
@@ -221,10 +231,14 @@ abstract class ed25519(busWidthBytes: Int, val c: ed25519Params)
     mult.io.ena := ena
     rdy := mult.io.rdy
     fromacc_k.addr := mult.io.k_addr
-    mult.io.k_din := fromacc_k.q
     fromacc_k.en := true.B
     fromacc_k.we := false.B
     fromacc_k.d := BigInt(0xdeadbeefL).U
+    fromacc_k2.addr := mult.io.k_addr
+    fromacc_k2.en := true.B
+    fromacc_k2.we := false.B
+    fromacc_k2.d := BigInt(0xdeadbeefL).U
+    mult.io.k_din := Mux(wk, fromacc_k2.q, fromacc_k.q)
     fromacc_qy.addr := mult.io.qy_addr
     fromacc_qy.we := mult.io.qy_wren
     fromacc_qy.d := mult.io.qy_dout
@@ -256,6 +270,7 @@ abstract class ed25519(busWidthBytes: Int, val c: ed25519Params)
     // Memory map registers
     regmap(
       ed25519CtrlRegs.key -> k_regmap,
+      ed25519CtrlRegs.key2 -> k2_regmap,
       ed25519CtrlRegs.qy -> qy_regmap,
       ed25519CtrlRegs.a -> a_regmap,
       ed25519CtrlRegs.b -> b_regmap,

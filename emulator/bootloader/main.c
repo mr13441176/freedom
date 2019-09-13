@@ -115,11 +115,11 @@ void hwsha3_final(byte* hash, void* data, size_t size) {
   while(size >= 8) {
     size -= 8;
     SHA3_REG64(SHA3_REG_DATA_0) = *d;
-    SHA3_REG(SHA3_REG_STATUS) = size?(1 << 16):(3 << 16);
+    SHA3_REG(SHA3_REG_STATUS) = 1 << 16;
     d += 1;
   }
-  if(size > 0) {
-    SHA3_REG64(SHA3_REG_DATA_0) = *d;
+  /*if(size > 0)*/ {
+    if(size > 0) SHA3_REG64(SHA3_REG_DATA_0) = *d;
     SHA3_REG(SHA3_REG_STATUS) = size & 0x7;
     SHA3_REG(SHA3_REG_STATUS) = 3 << 16;
   }
@@ -136,23 +136,30 @@ int main(int argc, char** argv) {
   printstr("Hello world, FSBL\r\n");
   
   // Test the hardware with the software SHA3
-  /*byte hash[64];
+  byte hash[64];
   uint32_t* hs = (uint32_t*)hash;
-  sha3_init(&hash_ctx, 64);
-  sha3_update(&hash_ctx, (void*)"FOX1", 4);
+  /*sha3_init(&hash_ctx, 64);
+  sha3_update(&hash_ctx, (void*)"FOX1FOX2", 8);
+  sha3_update(&hash_ctx, (void*)"FOX3FOX4", 8);
   sha3_final(hash, &hash_ctx);
   for(int i = 0; i < 16; i++) 
      printhex32(*(hs+i));
-  printstr("\r\n");
+  printstr("\r\n");*/
     
-  hwsha3_init(&hash_ctx);
-  hwsha3_final(hash, (void*)"FOX1", 4);
+  hwsha3_init();
+  hwsha3_update((void*)"FOX1FOX2", 8);
+  hwsha3_final(hash, (void*)"FOX3FOX4", 8);
+  printstr("Seed:\r\n");
   for(int i = 0; i < 16; i++) 
       printhex32(*(hs+i));
-  printstr("\r\n");*/
   
-  unsigned int key[8] = ED25519_D_HASHED_LSB_1;
+  unsigned char *seed = (unsigned char*) hash;
+  
+  unsigned int key[16];
   unsigned char *private_key = (unsigned char*) key;
+  
+  unsigned int key_2[16];
+  unsigned char *private_key_2 = (unsigned char*) key_2;
   
   unsigned int pub1[8];
   unsigned char *public_key_1 = (unsigned char*) pub1;
@@ -161,30 +168,22 @@ int main(int argc, char** argv) {
   unsigned char *public_key_2 = (unsigned char*) pub2;
   
   // Software
-  private_key[0] &= 248;
-  private_key[31] &= 63;
-  private_key[31] |= 64;
-  ge_p3 A;
-  ge_scalarmult_base(&A, private_key);
-  ge_p3_tobytes(public_key_1, &A);
-  printstr("Software signature\r\n");
+  ed25519_create_keypair(public_key_1, private_key, seed);
+  printstr("\r\nSoftware public key\r\n");
   for(int i = 0; i < 8; i++) 
     printhex32(*(pub1+i));
+  printstr("\r\nSoftware private key\r\n");
+  for(int i = 0; i < 16; i++) 
+    printhex32(*(key+i));
   
   // Hardware
-  for(int i = 0; i < 8; i++) {
-    ED25519_REG(ED25519_REG_ADDR_K) = i;
-    ED25519_REG(ED25519_REG_DATA_K) = key[i];
-  }
-  ED25519_REG(ED25519_REG_STATUS) = 1;
-  while(!(ED25519_REG(ED25519_REG_STATUS) & 0x4));
-  for(int i = 0; i < 8; i++) {
-    ED25519_REG(ED25519_REG_ADDR_QY) = i;
-    pub2[i] = ED25519_REG(ED25519_REG_DATA_QY);
-  }
-  printstr("\r\nHardware signature\r\n");
+  hw_ed25519_create_keypair(public_key_2, private_key_2, seed);
+  printstr("\r\nHardware public key\r\n");
   for(int i = 0; i < 8; i++) 
     printhex32(*(pub2+i));
+  printstr("\r\nHardware private key\r\n");
+  for(int i = 0; i < 16; i++) 
+    printhex32(*(key_2+i));
   printstr("\r\n");
   
   tohost_exit(0);
