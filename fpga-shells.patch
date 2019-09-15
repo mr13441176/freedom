@@ -1,7 +1,16 @@
 diff --git a/src/main/scala/shell/xilinx/VC707NewShell.scala b/src/main/scala/shell/xilinx/VC707NewShell.scala
-index f02e4d1..b5fbd9d 100644
+index f02e4d1..f44e117 100644
 --- a/src/main/scala/shell/xilinx/VC707NewShell.scala
 +++ b/src/main/scala/shell/xilinx/VC707NewShell.scala
+@@ -199,7 +199,7 @@ class PCIeVC707Overlay(val shell: VC707Shell, val name: String, params: PCIeOver
+   shell.sdc.addGroup(clocks = Seq("txoutclk", "userclk1"))
+ }
+ 
+-class VC707Shell()(implicit p: Parameters) extends Series7Shell
++abstract class VC707Shell()(implicit p: Parameters) extends Series7Shell
+ {
+   // PLL reset causes
+   val pllReset = InModuleBody { Wire(Bool()) }
 @@ -210,10 +210,37 @@ class VC707Shell()(implicit p: Parameters) extends Series7Shell
    val switch    = Overlay(SwitchOverlayKey)    (new SwitchVC707Overlay  (_, _, _))
    val chiplink  = Overlay(ChipLinkOverlayKey)  (new ChipLinkVC707Overlay(_, _, _))
