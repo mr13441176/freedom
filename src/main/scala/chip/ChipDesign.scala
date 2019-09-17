@@ -1,29 +1,19 @@
 // See LICENSE for license details.
 
-package sifive.freedom.unleashed
+package uec.nedo.chip
 
 import Chisel._
-import chisel3.experimental.{withClockAndReset}
-
 import freechips.rocketchip.config._
-import freechips.rocketchip.subsystem._
 import freechips.rocketchip.devices.debug._
-import freechips.rocketchip.diplomacy._
-import freechips.rocketchip.interrupts._
-import freechips.rocketchip.tilelink._
 import freechips.rocketchip.devices.tilelink._
-import freechips.rocketchip.system._
-import freechips.rocketchip.util.{ElaborationArtefacts,ResetCatchAndSync}
-
-import sifive.blocks.devices.msi._
-import sifive.blocks.devices.chiplink._
+import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.subsystem._
+import sifive.blocks.devices.gpio._
+import sifive.blocks.devices.pinctrl.BasePin
 import sifive.blocks.devices.spi._
 import sifive.blocks.devices.uart._
-import sifive.blocks.devices.gpio._
-import sifive.blocks.devices.pinctrl.{BasePin}
-
-import sifive.fpgashells.shell._
 import sifive.fpgashells.clocks._
+import sifive.fpgashells.shell._
 
 object ChipPinGen {
   def apply(): BasePin = {
@@ -34,11 +24,8 @@ object ChipPinGen {
 class ChipWrapper()(implicit p: Parameters) extends LazyModule
 {
   val sysClock  = p(ClockInputOverlayKey).head.apply(ClockInputOverlayParams())
-  //val corePLL   = p(PLLFactoryKey)()
-  //val coreGroup = ClockGroup()
   val wrangler  = LazyModule(new ResetWrangler)
   val coreClock = ClockSinkNode(freqMHz = p(ChipFrequencyKey))
-  //coreClock := wrangler.node := coreGroup := corePLL := sysClock
   coreClock := wrangler.node := sysClock
 
   // removing the debug trait is invasive, so we hook it up externally for now
@@ -146,5 +133,5 @@ class ChipSystemModule[+L <: ChipDesign](_outer: L)
 class ChipDesignTop extends Config(
   new ChipConfig().alter((site, here, up) => {
     case DesignKey => { (p:Parameters) => new ChipWrapper()(p) }
-    case DevKitFPGAFrequencyKey => 100.0
+    case ChipFrequencyKey => 100.0
   }))

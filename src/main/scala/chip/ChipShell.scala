@@ -1,4 +1,4 @@
-package sifive.fpgashells.shell.chip
+package uec.nedo.chip
 
 import chisel3._
 import chisel3.experimental.{attach, IO, withClockAndReset}
@@ -14,26 +14,32 @@ import sifive.blocks.devices.chiplink._
 import sifive.fpgashells.devices.xilinx.xilinxvc707mig._
 import sifive.fpgashells.devices.xilinx.xilinxvc707pciex1._
 
+abstract class ClockInputOverlay(
+  val params: ClockInputOverlayParams)
+    extends IOOverlay[Clock, ClockSourceNode]
+{
+  implicit val p = params.p
+  def node: ClockSourceNode
+
+  def ioFactory = Input(new Clock)
+  def designOutput = node
+
+  val clock = shell { InModuleBody {
+    val (clk, edge) = node.out.head
+    clk.clock
+  } }
+}
+
 class SysClockChipOverlay(val shell: ChipShell, val name: String, params: ClockInputOverlayParams)
-  extends LVDSClockInputOverlay(params)
+  extends ClockInputOverlay(params)
 {
   shell { InModuleBody {
-    //val ibufds = Module(new IBUFDS)
-    //ibufds.suggestName(s"${name}_ibufds")
-
     val (c, _) = node.out(0)
-    //ibufds.io.I  := io.p
-    //ibufds.io.IB := io.n
-    c.clock := io.p
+    c.clock := io
     c.reset := shell.SysReset
   } }
 
   val node = shell { ClockSourceNode(freqMHz = 200, jitterPS = 50)(ValName(name)) }
-
-  /*shell { InModuleBody {
-    shell.xdc.addBoardPin(io.p, "clk_p")
-    shell.xdc.addBoardPin(io.n, "clk_n")
-  } }*/
 }
 
 class SDIOChipOverlay(val shell: ChipShell, val name: String, params: SDIOOverlayParams)
@@ -139,7 +145,7 @@ class JTAGDebugChipOverlay(val shell: ChipShell, val name: String, params: JTAGD
 }
 
 case object ChipDDRSize extends Field[BigInt](0x40000000L * 1) // 1GB
-class DDRChipOverlay(val shell: ChipShell, val name: String, params: DDROverlayParams)
+/*class DDRChipOverlay(val shell: ChipShell, val name: String, params: DDROverlayParams)
   extends DDROverlay[XilinxVC707MIGPads](params)
 {
   val size = p(ChipDDRSize)
@@ -158,8 +164,8 @@ class DDRChipOverlay(val shell: ChipShell, val name: String, params: DDROverlayP
   InModuleBody { ioNode.bundle <> mig.module.io }
 
   shell { InModuleBody {
-    require (shell.sys_clock.isDefined, "Use of DDRChipOverlay depends on SysClockChipOverlay")
-    val (sys, _) = shell.sys_clock.get.node.out(0)
+    require (shell.tlclk.isDefined, "Use of DDRChipOverlay depends on SysClockChipOverlay")
+    val (sys, _) = shell.tlclk.get.node.out(0)
     val (ui, _) = ddrUI.out(0)
     val (ar, _) = areset.in(0)
     val port = topIONode.bundle.port
@@ -167,7 +173,41 @@ class DDRChipOverlay(val shell: ChipShell, val name: String, params: DDROverlayP
     ui.clock := port.ui_clk
     ui.reset := !port.mmcm_locked || port.ui_clk_sync_rst
     port.sys_clk_i := sys.clock.asUInt
-    port.sys_rst := sys.reset // pllReset
+    port.sys_rst := sys.reset
+    port.aresetn := !ar.reset
+  } }
+
+  shell.sdc.addGroup(clocks = Seq("clk_pll_i"))
+}*/
+class AvalonAsMemOverlay(val shell: ChipShell, val name: String, params: DDROverlayParams)
+  extends DDROverlay[XilinxVC707MIGPads](params)
+{
+  val size = p(ChipDDRSize)
+
+  val migParams = XilinxVC707MIGParams(address = AddressSet.misaligned(params.baseAddress, size))
+  val mig = LazyModule(new XilinxVC707MIG(migParams))
+  val ioNode = BundleBridgeSource(() => mig.module.io.cloneType)
+  val topIONode = shell { ioNode.makeSink() }
+  val ddrUI     = shell { ClockSourceNode(freqMHz = 200) }
+  val areset    = shell { ClockSinkNode(Seq(ClockSinkParameters())) }
+  areset := params.wrangler := ddrUI
+
+  def designOutput = mig.node
+  def ioFactory = new XilinxVC707MIGPads(size)
+
+  InModuleBody { ioNode.bundle <> mig.module.io }
+
+  shell { InModuleBody {
+    require (shell.tlclk.isDefined, "Use of DDRChipOverlay depends on SysClockChipOverlay")
+    val (sys, _) = shell.tlclk.get.node.out(0)
+    val (ui, _) = ddrUI.out(0)
+    val (ar, _) = areset.in(0)
+    val port = topIONode.bundle.port
+    io <> port
+    ui.clock := port.ui_clk
+    ui.reset := !port.mmcm_locked || port.ui_clk_sync_rst
+    port.sys_clk_i := sys.clock.asUInt
+    port.sys_rst := sys.reset
     port.aresetn := !ar.reset
   } }
 
@@ -214,7 +254,6 @@ abstract class ChipBaseShell()(implicit p: Parameters) extends IOShell
 {
   val sdc = new SDC("shell.sdc")
   val xdc = new XDC("shell.xdc")
-  //def pllReset: ModuleValue[Bool]
 
   ElaborationArtefacts.add("shell.vivado.tcl",
     """set shell_vivado_tcl [file normalize [info script]]
@@ -222,11 +261,6 @@ abstract class ChipBaseShell()(implicit p: Parameters) extends IOShell
       |add_files -fileset [current_fileset -constrset] [string replace $shell_vivado_tcl $shell_vivado_idx 999 ".shell.sdc"]
       |add_files -fileset [current_fileset -constrset] [string replace $shell_vivado_tcl $shell_vivado_idx 999 ".shell.xdc"]
       |""".stripMargin)
-
-  /*val pllFactory = new PLLFactory(this, 7, p => Module(new Series7MMCM(p)))
-  override def designParameters = super.designParameters.alterPartial {
-    case PLLFactoryKey => pllFactory
-  }*/
 }
 
 class ChipShell()(implicit p: Parameters) extends ChipBaseShell
@@ -234,13 +268,13 @@ class ChipShell()(implicit p: Parameters) extends ChipBaseShell
   val SysReset = InModuleBody { Wire(Bool()) }
 
   // Order matters; ddr depends on sys_clock
-  val sys_clock = Overlay(ClockInputOverlayKey)(new SysClockChipOverlay(_, _, _))
-  val led       = Overlay(LEDOverlayKey)       (new LEDChipOverlay     (_, _, _))
-  val switch    = Overlay(SwitchOverlayKey)    (new SwitchChipOverlay  (_, _, _))
-  val ddr       = Overlay(DDROverlayKey)       (new DDRChipOverlay     (_, _, _))
-  val uart      = Overlay(UARTOverlayKey)      (new UARTChipOverlay    (_, _, _))
-  val sdio      = Overlay(SDIOOverlayKey)      (new SDIOChipOverlay    (_, _, _))
-  val jtag      = Overlay(JTAGDebugOverlayKey)      (new JTAGDebugChipOverlay    (_, _, _))
+  val tlclk  = Overlay(ClockInputOverlayKey)(new SysClockChipOverlay (_, _, _))
+  val led    = Overlay(LEDOverlayKey)       (new LEDChipOverlay      (_, _, _))
+  val switch = Overlay(SwitchOverlayKey)    (new SwitchChipOverlay   (_, _, _))
+  val ddr    = Overlay(DDROverlayKey)       (new AvalonAsMemOverlay  (_, _, _))
+  val uart   = Overlay(UARTOverlayKey)      (new UARTChipOverlay     (_, _, _))
+  val sdio   = Overlay(SDIOOverlayKey)      (new SDIOChipOverlay     (_, _, _))
+  val jtag   = Overlay(JTAGDebugOverlayKey) (new JTAGDebugChipOverlay(_, _, _))
 
   val topDesign = LazyModule(p(DesignKey)(designParameters))
 
@@ -249,12 +283,7 @@ class ChipShell()(implicit p: Parameters) extends ChipBaseShell
 
   override lazy val module = new LazyRawModuleImp(this) {
     val reset = IO(Input(Bool()))
-    //xdc.addBoardPin(reset, "reset")
 
-    //val reset_ibuf = Module(new IBUF)
-    //reset_ibuf.io.I := reset
-
-    //SysReset := reset_ibuf.io.O
     SysReset := reset
   }
 }

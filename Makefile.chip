@@ -2,9 +2,9 @@
 base_dir := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 BUILD_DIR := $(base_dir)/builds/chip
 FPGA_DIR := $(base_dir)/fpga-shells/xilinx
-PROJECT := sifive.fpgashells.shell.chip
+PROJECT := uec.nedo.chip
 MODEL := ChipShell
-export CONFIG_PROJECT := sifive.freedom.unleashed
+export CONFIG_PROJECT := uec.nedo.chip
 export CONFIG := ChipDesignTop
 export BOARD := vc707
 export BOOTROM_DIR := $(base_dir)/bootrom/freedom-u540-c000-bootloader

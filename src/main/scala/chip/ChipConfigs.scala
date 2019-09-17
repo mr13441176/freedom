@@ -1,14 +1,13 @@
 // See LICENSE for license details.
-package sifive.freedom.unleashed
+package uec.nedo.chip
 
 import freechips.rocketchip.config._
-import freechips.rocketchip.subsystem._
 import freechips.rocketchip.devices.debug._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.subsystem._
 import freechips.rocketchip.system._
 import freechips.rocketchip.tile._
-
 import sifive.blocks.devices.gpio._
 import sifive.blocks.devices.spi._
 import sifive.blocks.devices.uart._
@@ -45,7 +44,7 @@ class ChipConfig extends Config(
         maxTransfer=128,
         region = RegionType.TRACKED)))
     case PeripheryBusKey => up(PeripheryBusKey, site).copy(frequency =
-      BigDecimal(site(DevKitFPGAFrequencyKey)*1000000).setScale(0, BigDecimal.RoundingMode.HALF_UP).toBigInt,
+      BigDecimal(site(ChipFrequencyKey)*1000000).setScale(0, BigDecimal.RoundingMode.HALF_UP).toBigInt,
       errorDevice = None)
     case DTSTimebase => BigInt(1000000)
     case JtagDTMKey => new JtagDTMConfig (
