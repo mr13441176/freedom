@@ -1,0 +1,26 @@
+diff --git a/fsbl/main.c b/fsbl/main.c
+index 67f21ad..d948642 100644
+--- a/fsbl/main.c
++++ b/fsbl/main.c
+@@ -41,7 +41,7 @@
+ #ifndef FPGA
+ #define NUM_CORES 5
+ #else
+-#define NUM_CORES 4
++#define NUM_CORES 2
+ #include "tl_clock.h"
+ #define F_CLK TL_CLK/1000
+ #endif
+diff --git a/sifive/platform.h b/sifive/platform.h
+index 07f84bb..6a5b038 100644
+--- a/sifive/platform.h
++++ b/sifive/platform.h
+@@ -34,7 +34,7 @@
+ #ifndef FPGA
+ #define NUM_CORES 5
+ #else
+-#define NUM_CORES 4
++#define NUM_CORES 2
+ #endif
+ #define MAX_HART_ID 4
+ #define GLOBAL_INT_SIZE 59
