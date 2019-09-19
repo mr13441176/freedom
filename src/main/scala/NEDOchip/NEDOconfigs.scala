@@ -39,6 +39,11 @@ class ChipPeripherals extends Config((site, here, up) => {
       defaultSampleDel = 3))
   case PeripheryMaskROMKey => List(
     MaskROMParams(address = 0x78000000, name = "BootROM"))
+  case ExtMem => Some(MemoryPortParams(MasterPortParams(
+    base = x"8000_0000",
+    size = x"1000_0000",
+    beatBytes = site(MemoryBusKey).beatBytes,
+    idBits = 4), 1))
 })
 
 // Chip Configs

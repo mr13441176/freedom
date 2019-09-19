@@ -1,6 +1,7 @@
 package uec.keystone.nedochip
 
 import chisel3._
+import freechips.rocketchip.amba.axi4._
 import freechips.rocketchip.config._
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.devices.debug._
@@ -22,7 +23,8 @@ class NEDOSystem(implicit p: Parameters) extends RocketSubsystem
     with HasPeripherySPI
     with HasPeripherySPIFlash
     with HasPeripheryGPIO
-    with HasPeripheryI2C {
+    with HasPeripheryI2C
+    with CanHaveMasterAXI4MemPort {
   override lazy val module = new NEDOSystemModule(this)
 }
 
@@ -31,9 +33,10 @@ class NEDOSystemModule[+L <: NEDOSystem](_outer: L)
     with HasPeripheryDebugModuleImp
     with HasPeripheryUARTModuleImp
     with HasPeripherySPIModuleImp
-    with HasPeripheryGPIOModuleImp
     with HasPeripherySPIFlashModuleImp
-    with HasPeripheryI2CModuleImp {
+    with HasPeripheryGPIOModuleImp
+    with HasPeripheryI2CModuleImp
+    with CanHaveMasterAXI4MemPortModuleImp {
   // Reset vector is set to the location of the mask rom
   val maskROMParams = p(PeripheryMaskROMKey)
   global_reset_vector := maskROMParams(0).address.U
@@ -59,15 +62,26 @@ class NEDOPlatformIO(implicit val p: Parameters) extends Bundle {
     val i2c = new I2CPins(() => PinGen())
     val spi = new SPIPins(() => PinGen(), p(PeripherySPIKey)(0))
   }
+  val jtag_reset = Input(Bool())
 }
 
 
 class NEDOPlatform(implicit val p: Parameters) extends Module {
   val sys = Module(LazyModule(new NEDOSystem).module)
-  val io = new NEDOPlatformIO
+  val io = IO(new NEDOPlatformIO)
 
   // Add in debug-controlled reset.
   sys.reset := ResetCatchAndSync(clock, reset.toBool, 20)
+
+  // The AXI4 memory port. This is a configurable one for the address space
+  // and the ports are exposed inside the "foreach". Do not worry, there is
+  // only one memory (unless you configure multiple memories).
+  sys.mem_axi4.foreach{ case i =>
+    i.foreach{ case io: AXI4Bundle =>
+    }
+  }
+  // TODO: For now we are connecting a "simulated memory" for avoid errors.
+  sys.connectSimAXIMem()
 
   //-----------------------------------------------------------------------
   // Check for unsupported rocket-chip connections
@@ -75,22 +89,11 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
 
   require (p(NExtTopInterrupts) == 0, "No Top-level interrupts supported");
 
-  //-----------------------------------------------------------------------
-  // Default Pin connections before attaching pinmux
-
-  for (iof_0 <- sys.gpio(0).iof_0.get) {
-    iof_0.default()
-  }
-
-  for (iof_1 <- sys.gpio(0).iof_1.get) {
-    iof_1.default()
-  }
-
   // I2C
-  //I2CPinsFromPort(io.pins.i2c, sys.i2c(0), clock = sys.clock, reset = sys.reset, syncStages = 0)
+  I2CPinsFromPort(io.pins.i2c, sys.i2c(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 0)
 
   // UART0
-  //UARTPinsFromPort(io.pins.uart, sys.uart(0), clock = sys.clock, reset = sys.reset, syncStages = 0)
+  UARTPinsFromPort(io.pins.uart, sys.uart(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 0)
 
   //-----------------------------------------------------------------------
   // Drive actual Pads
@@ -100,11 +103,12 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
   GPIOPinsFromPort(io.pins.gpio, sys.gpio(0))
 
   // Dedicated SPI Pads
-  //SPIPinsFromPort(io.pins.qspi, sys.qspi(0), clock = sys.clock, reset = sys.reset, syncStages = 3)
-  //SPIPinsFromPort(io.pins.spi, sys.spi(0), clock = sys.clock, reset = sys.reset, syncStages = 0)
+  SPIPinsFromPort(io.pins.qspi, sys.qspi(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 3)
+  SPIPinsFromPort(io.pins.spi, sys.spi(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 0)
 
   // JTAG Debug Interface
   val sjtag = sys.debug.systemjtag.get
   JTAGPinsFromPort(io.pins.jtag, sjtag.jtag)
+  sjtag.reset := io.jtag_reset
   sjtag.mfr_id := p(JtagDTMKey).idcodeManufId.U(11.W)
 }
