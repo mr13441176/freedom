@@ -187,5 +187,9 @@ class NEDOwrapper(implicit p :Parameters) extends RawModule {
     val I2C_SCL = Module(new GPIO_24_A)
     PinToGPIO_24_A(I2C_SCL.io, system.io.pins.i2c.scl)
     attach(i2c_scl, I2C_SCL.io.PAD)
+
+    // The memory port
+    // TODO: This is awfully dirty. I mean it should get the work done
+    system.io.tlport.getElements.head
   }
 }
