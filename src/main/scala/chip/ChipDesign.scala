@@ -1,8 +1,7 @@
-// See LICENSE for license details.
-
 package uec.nedo.chip
 
 import Chisel._
+import chisel3.{Bool, Module, RegNext, Vec, Wire}
 import freechips.rocketchip.config._
 import freechips.rocketchip.devices.debug._
 import freechips.rocketchip.devices.tilelink._
@@ -13,6 +12,7 @@ import sifive.blocks.devices.pinctrl.BasePin
 import sifive.blocks.devices.spi._
 import sifive.blocks.devices.uart._
 import sifive.fpgashells.clocks._
+import sifive.fpgashells.ip.xilinx.IBUF
 import sifive.fpgashells.shell._
 
 object ChipPinGen {
@@ -79,7 +79,6 @@ class ChipDesign(wranglerNode: ClockAdapterNode)(implicit p: Parameters) extends
     }
   } }
 
-
   // TODO: currently, only hook up one memory channel
   val ddr = p(DDROverlayKey).headOption.map(_(DDROverlayParams(p(ExtMem).get.master.base, wranglerNode)))
   ddr.get := mbus.toDRAMController(Some("xilinxvc707mig"))()
@@ -100,12 +99,20 @@ class ChipDesign(wranglerNode: ClockAdapterNode)(implicit p: Parameters) extends
 
   // LEDs / GPIOs
   val gpioParams = p(PeripheryGPIOKey)
-  val gpios = gpioParams.map { case(params) =>
+  val gpioLedOverlay = p(GPIOLedOverlayKey)
+  //val gpioSwitchParams = p(SwitchOverlayKey)
+  (gpioParams zip gpioLedOverlay).foreach { case (gparam, goverlay) => {
+    val g = goverlay(GPIOLedOverlayParams(gparam, pbus, ibus.fromAsync))
+    //tlclock.bind(g.device)
+  } }
+
+  /*val gpios = gpioParams.map { case(params) =>
     val g = GPIO.attach(GPIOAttachParams(gpio = params, pbus, ibus.fromAsync))
     g.ioNode.makeSink
-  }
+  }*/
 
-  val leds = p(LEDOverlayKey).headOption.map(_(LEDOverlayParams()))
+  //val leds = p(LEDOverlayKey).headOption.map(_(LEDOverlayParams()))
+  //val switches = p(SwitchOverlayKey).headOption.map(_(SwitchOverlayParams()))
 
   override lazy val module = new ChipSystemModule(this)
 }
@@ -120,14 +127,16 @@ class ChipSystemModule[+L <: ChipDesign](_outer: L)
   global_reset_vector := maskROMParams(0).address.U
 
   // hook up GPIOs to LEDs
-  val gpioParams = _outer.gpioParams
+  /*val gpioParams = _outer.gpioParams
   val gpio_pins = Wire(new GPIOPins(() => ChipPinGen(), gpioParams(0)))
 
   GPIOPinsFromPort(gpio_pins, _outer.gpios(0).bundle)
 
-  gpio_pins.pins.foreach { _.i.ival := Bool(false) }
-  val gpio_cat = Cat(Seq.tabulate(gpio_pins.pins.length) { i => gpio_pins.pins(i).o.oval })
-  _outer.leds.get := gpio_cat
+  val led_cat = Cat(Seq.tabulate(gpio_pins.pins.length) { i => gpio_pins.pins(i).o.oval })
+  _outer.leds.get := led_cat*/
+
+  // hook up GPIOs to LEDs
+
 }
 
 class ChipDesignTop extends Config(

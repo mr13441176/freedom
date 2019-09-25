@@ -44,83 +44,27 @@ class SysClockChipOverlay(val shell: ChipShell, val name: String, params: ClockI
 
 class SDIOChipOverlay(val shell: ChipShell, val name: String, params: SDIOOverlayParams)
   extends SDIOOverlay(params)
-{
-  shell { InModuleBody {
-    val packagePinsWithPackageIOs = Seq(("AN30", IOPin(io.sdio_clk)),
-                                        ("AP30", IOPin(io.sdio_cmd)),
-                                        ("AR30", IOPin(io.sdio_dat_0)),
-                                        ("AU31", IOPin(io.sdio_dat_1)),
-                                        ("AV31", IOPin(io.sdio_dat_2)),
-                                        ("AT30", IOPin(io.sdio_dat_3)))
-
-    packagePinsWithPackageIOs foreach { case (pin, io) => {
-      shell.xdc.addPackagePin(io, pin)
-      shell.xdc.addIOStandard(io, "LVCMOS18")
-      shell.xdc.addIOB(io)
-    } }
-    packagePinsWithPackageIOs drop 1 foreach { case (pin, io) => {
-      shell.xdc.addPullup(io)
-    } }
-  } }
-}
 
 class UARTChipOverlay(val shell: ChipShell, val name: String, params: UARTOverlayParams)
   extends UARTOverlay(params)
+
+class LEDChipOverlay(val shell: ChipShell, val name: String, params: GPIOLedOverlayParams)
+  extends GPIOLedOverlay(params)
 {
-  shell { InModuleBody {
-    val packagePinsWithPackageIOs = Seq(("AT32", IOPin(io.ctsn)),
-                                        ("AR34", IOPin(io.rtsn)),
-                                        ("AU33", IOPin(io.rxd)),
-                                        ("AU36", IOPin(io.txd)))
+  val width = 8
 
-    packagePinsWithPackageIOs foreach { case (pin, io) => {
-      shell.xdc.addPackagePin(io, pin)
-      shell.xdc.addIOStandard(io, "LVCMOS18")
-      shell.xdc.addIOB(io)
-    } }
-  } }
-}
-
-class LEDChipOverlay(val shell: ChipShell, val name: String, params: LEDOverlayParams)
-  extends LEDOverlay(params)
-{
-  val boardPins = Seq.tabulate(8) { i => s"leds_8bits_tri_o_$i" }
-  val width = boardPins.size
-
-  shell { InModuleBody {
-    io := ledSink.bundle // could/should put OBUFs here?
-
-    val cutAt = boardPins.size
-    val ios = IOPin.of(io)
-    val boardIOs = ios.take(cutAt)
-    val packageIOs = ios.drop(cutAt)
-
-    (boardPins   zip boardIOs)   foreach { case (pin, io) => shell.xdc.addBoardPin  (io, pin) }
-  } }
+  /*shell { InModuleBody {
+    io := ledSink.bundle
+  } }*/
 }
 
 class SwitchChipOverlay(val shell: ChipShell, val name: String, params: SwitchOverlayParams)
   extends SwitchOverlay(params)
 {
-  val boardPins = Seq.tabulate(8) { i => s"dip_switches_tri_i_$i" }
-  val width = boardPins.size
+  val width = 8
 
   shell { InModuleBody {
-    val vec = Wire(Vec(width, Bool()))
-    switchSource.out(0)._1 := vec.asUInt
-    (vec zip io.toBools).zipWithIndex.foreach { case ((o, i), idx) =>
-      val ibuf = Module(new IBUF)
-      ibuf.suggestName(s"switch_ibuf_${idx}")
-      ibuf.io.I := i
-      o := ibuf.io.O
-    }
-
-    val cutAt = boardPins.size
-    val ios = IOPin.of(io)
-    val boardIOs = ios.take(cutAt)
-    val packageIOs = ios.drop(cutAt)
-
-    (boardPins   zip boardIOs)   foreach { case (pin, io) => shell.xdc.addBoardPin  (io, pin) }
+    switchSource.bundle := io
   } }
 }
 
@@ -269,7 +213,7 @@ class ChipShell()(implicit p: Parameters) extends ChipBaseShell
 
   // Order matters; ddr depends on sys_clock
   val tlclk  = Overlay(ClockInputOverlayKey)(new SysClockChipOverlay (_, _, _))
-  val led    = Overlay(LEDOverlayKey)       (new LEDChipOverlay      (_, _, _))
+  val led    = Overlay(GPIOLedOverlayKey)   (new LEDChipOverlay      (_, _, _))
   val switch = Overlay(SwitchOverlayKey)    (new SwitchChipOverlay   (_, _, _))
   val ddr    = Overlay(DDROverlayKey)       (new AvalonAsMemOverlay  (_, _, _))
   val uart   = Overlay(UARTOverlayKey)      (new UARTChipOverlay     (_, _, _))
