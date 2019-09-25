@@ -2,6 +2,7 @@ package uec.nedo.chip
 
 import Chisel.Vec
 import chisel3._
+import chisel3.util.Cat
 import sifive.fpgashells.shell._
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
@@ -35,7 +36,10 @@ abstract class GPIOLedOverlay(
   //val designOutput = tlLed
 
   InModuleBody {
-    ledSource.bundle <> tlLedSink.bundle
+    val pins = Wire(new GPIOPortIO(params.gpioParams))
+    pins := tlLedSink.bundle
+    val cat = Cat(Seq.tabulate(width) { i => pins.pins(width-1-i).o.oval })
+    ledSource.bundle := cat
   }
 
   shell { InModuleBody {
