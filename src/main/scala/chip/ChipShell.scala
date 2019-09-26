@@ -58,14 +58,14 @@ class LEDChipOverlay(val shell: ChipShell, val name: String, params: GPIOLedOver
   } }*/
 }
 
-class SwitchChipOverlay(val shell: ChipShell, val name: String, params: SwitchOverlayParams)
-  extends SwitchOverlay(params)
+class SwitchChipOverlay(val shell: ChipShell, val name: String, params: GPIOSwitchOverlayParams)
+  extends GPIOSwitchOverlay(params)
 {
   val width = 8
 
-  shell { InModuleBody {
+  /*shell { InModuleBody {
     switchSource.bundle := io
-  } }
+  } }*/
 }
 
 class JTAGDebugChipOverlay(val shell: ChipShell, val name: String, params: JTAGDebugOverlayParams)
@@ -214,7 +214,7 @@ class ChipShell()(implicit p: Parameters) extends ChipBaseShell
   // Order matters; ddr depends on sys_clock
   val tlclk  = Overlay(ClockInputOverlayKey)(new SysClockChipOverlay (_, _, _))
   val led    = Overlay(GPIOLedOverlayKey)   (new LEDChipOverlay      (_, _, _))
-  val switch = Overlay(SwitchOverlayKey)    (new SwitchChipOverlay   (_, _, _))
+  val switch = Overlay(GPIOSwitchOverlayKey)(new SwitchChipOverlay   (_, _, _))
   val ddr    = Overlay(DDROverlayKey)       (new AvalonAsMemOverlay  (_, _, _))
   val uart   = Overlay(UARTOverlayKey)      (new UARTChipOverlay     (_, _, _))
   val sdio   = Overlay(SDIOOverlayKey)      (new SDIOChipOverlay     (_, _, _))

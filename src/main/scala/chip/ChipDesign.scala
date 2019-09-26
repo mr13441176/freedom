@@ -100,11 +100,21 @@ class ChipDesign(wranglerNode: ClockAdapterNode)(implicit p: Parameters) extends
   // LEDs / GPIOs
   val gpioParams = p(PeripheryGPIOKey)
   val gpioLedOverlay = p(GPIOLedOverlayKey)
-  //val gpioSwitchParams = p(SwitchOverlayKey)
-  (gpioParams zip gpioLedOverlay).foreach { case (gparam, goverlay) => {
+  val gpioSwitchOverlay = p(GPIOSwitchOverlayKey)
+  /*(gpioParams zip gpioLedOverlay).foreach { case (gparam, goverlay) => {
     val g = goverlay(GPIOLedOverlayParams(gparam, pbus, ibus.fromAsync))
     //tlclock.bind(g.device)
   } }
+  (gpioParams zip gpioSwitchOverlay).foreach { case (gparam, goverlay) => {
+    val g = goverlay(GPIOSwitchOverlayParams(gparam, pbus, ibus.fromAsync))
+    //tlclock.bind(g.device)
+  } }*/
+  gpioLedOverlay.foreach { case goverlay =>
+    val g = goverlay(GPIOLedOverlayParams(gpioParams(0), pbus, ibus.fromAsync))
+  }
+  gpioSwitchOverlay.foreach { case goverlay =>
+    val g = goverlay(GPIOSwitchOverlayParams(gpioParams(1), pbus, ibus.fromAsync))
+  }
 
   /*val gpios = gpioParams.map { case(params) =>
     val g = GPIO.attach(GPIOAttachParams(gpio = params, pbus, ibus.fromAsync))
