@@ -50,23 +50,9 @@ class UARTChipOverlay(val shell: ChipShell, val name: String, params: UARTOverla
 
 class LEDChipOverlay(val shell: ChipShell, val name: String, params: GPIOLedOverlayParams)
   extends GPIOLedOverlay(params)
-{
-  val width = 8
-
-  /*shell { InModuleBody {
-    io := ledSink.bundle
-  } }*/
-}
 
 class SwitchChipOverlay(val shell: ChipShell, val name: String, params: GPIOSwitchOverlayParams)
   extends GPIOSwitchOverlay(params)
-{
-  val width = 8
-
-  /*shell { InModuleBody {
-    switchSource.bundle := io
-  } }*/
-}
 
 class JTAGDebugChipOverlay(val shell: ChipShell, val name: String, params: JTAGDebugOverlayParams)
   extends JTAGDebugOverlay(params)

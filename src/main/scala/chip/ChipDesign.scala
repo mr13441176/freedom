@@ -99,30 +99,13 @@ class ChipDesign(wranglerNode: ClockAdapterNode)(implicit p: Parameters) extends
 
   // LEDs / GPIOs
   val gpioParams = p(PeripheryGPIOKey)
-  val gpioLedOverlay = p(GPIOLedOverlayKey)
   val gpioSwitchOverlay = p(GPIOSwitchOverlayKey)
-  /*(gpioParams zip gpioLedOverlay).foreach { case (gparam, goverlay) => {
-    val g = goverlay(GPIOLedOverlayParams(gparam, pbus, ibus.fromAsync))
-    //tlclock.bind(g.device)
-  } }
-  (gpioParams zip gpioSwitchOverlay).foreach { case (gparam, goverlay) => {
-    val g = goverlay(GPIOSwitchOverlayParams(gparam, pbus, ibus.fromAsync))
-    //tlclock.bind(g.device)
-  } }*/
-  gpioLedOverlay.foreach { case goverlay =>
+  p(GPIOLedOverlayKey).foreach { case goverlay =>
     val g = goverlay(GPIOLedOverlayParams(gpioParams(0), pbus, ibus.fromAsync))
   }
-  gpioSwitchOverlay.foreach { case goverlay =>
+  p(GPIOSwitchOverlayKey).foreach { case goverlay =>
     val g = goverlay(GPIOSwitchOverlayParams(gpioParams(1), pbus, ibus.fromAsync))
   }
-
-  /*val gpios = gpioParams.map { case(params) =>
-    val g = GPIO.attach(GPIOAttachParams(gpio = params, pbus, ibus.fromAsync))
-    g.ioNode.makeSink
-  }*/
-
-  //val leds = p(LEDOverlayKey).headOption.map(_(LEDOverlayParams()))
-  //val switches = p(SwitchOverlayKey).headOption.map(_(SwitchOverlayParams()))
 
   override lazy val module = new ChipSystemModule(this)
 }
@@ -135,18 +118,6 @@ class ChipSystemModule[+L <: ChipDesign](_outer: L)
   // Reset vector is set to the location of the mask rom
   val maskROMParams = p(PeripheryMaskROMKey)
   global_reset_vector := maskROMParams(0).address.U
-
-  // hook up GPIOs to LEDs
-  /*val gpioParams = _outer.gpioParams
-  val gpio_pins = Wire(new GPIOPins(() => ChipPinGen(), gpioParams(0)))
-
-  GPIOPinsFromPort(gpio_pins, _outer.gpios(0).bundle)
-
-  val led_cat = Cat(Seq.tabulate(gpio_pins.pins.length) { i => gpio_pins.pins(i).o.oval })
-  _outer.leds.get := led_cat*/
-
-  // hook up GPIOs to LEDs
-
 }
 
 class ChipDesignTop extends Config(

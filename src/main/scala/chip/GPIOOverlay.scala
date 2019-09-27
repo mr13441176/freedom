@@ -24,9 +24,7 @@ abstract class GPIOLedOverlay(
     extends IOOverlay[UInt, ModuleValue[UInt]]
 {
   implicit val p = params.p
-
-  def width: Int
-
+  val width = params.gpioParams.width
   def ioFactory = Output(UInt(width.W))
 
   val tlLed = GPIO.attach(GPIOAttachParams(params.gpioParams, params.controlBus, params.intNode))
@@ -34,7 +32,7 @@ abstract class GPIOLedOverlay(
 
   val ledSource = BundleBridgeSource(() => UInt(width.W))
   val ledSink = shell { ledSource.makeSink() }
-  val designOutput = InModuleBody { ledSource.out(0)._1 }
+  val designOutput = InModuleBody { ledSource.bundle }
 
   InModuleBody {
     val pins = Wire(new GPIOPortIO(params.gpioParams))
@@ -53,8 +51,7 @@ abstract class GPIOSwitchOverlay(
     extends IOOverlay[UInt, ModuleValue[UInt]]
 {
   implicit val p = params.p
-
-  def width: Int
+  val width = params.gpioParams.width
   def ioFactory = Input(UInt(width.W))
 
   val tlSwitch = GPIO.attach(GPIOAttachParams(params.gpioParams, params.controlBus, params.intNode))
@@ -69,13 +66,8 @@ abstract class GPIOSwitchOverlay(
     tlSwitchSink.bundle := pins
     (pins.pins zip switchSink.bundle.toBools).foreach { case (i, o) =>
       i.i.ival := o
-      i.o.oval := false.B
-      i.o.ds := false.B
-      i.o.pue := false.B
-      i.o.ie := false.B
-      i.o.oe := false.B
+      i.default()
     }
-    //pins.pins.asUInt() := switchSource.bundle
 
     shell { InModuleBody {
       switchSource.bundle <> io
