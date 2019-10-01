@@ -25,7 +25,7 @@ class NEDOSystem(implicit p: Parameters) extends RocketSubsystem
     with HasPeripherySPI
     with HasPeripherySPIFlash
     with HasPeripheryGPIO
-    with HasPeripheryI2C
+//    with HasPeripheryI2C
 //    with CanHaveMasterAXI4MemPort
     with CanHaveMasterTLMemPort
 {
@@ -39,7 +39,7 @@ class NEDOSystemModule[+L <: NEDOSystem](_outer: L)
     with HasPeripherySPIModuleImp
     with HasPeripherySPIFlashModuleImp
     with HasPeripheryGPIOModuleImp
-    with HasPeripheryI2CModuleImp
+//    with HasPeripheryI2CModuleImp
 //    with CanHaveMasterAXI4MemPortModuleImp
     with CanHaveMasterTLMemPortModuleImp
 {
@@ -49,8 +49,8 @@ class NEDOSystemModule[+L <: NEDOSystem](_outer: L)
 }
 
 object PinGen {
-  def apply(): EnhancedPin =  {
-    val pin = new EnhancedPin()
+  def apply(): BasePin =  {
+    val pin = new BasePin()
     pin
   }
 }
@@ -59,17 +59,27 @@ object PinGen {
 // E300ArtyDevKitPlatformIO
 //-------------------------------------------------------------------------
 
-class NEDOPlatformIO(params: TLBundleParameters)(implicit val p: Parameters) extends Bundle {
+class NEDOPlatformIO[T <: Data](gen: () => T)(implicit val p: Parameters) extends Bundle {
   val pins = new Bundle {
     val jtag = new JTAGPins(() => PinGen(), false)
     val gpio = new GPIOPins(() => PinGen(), p(PeripheryGPIOKey)(0))
     val qspi = new SPIPins(() => PinGen(), p(PeripherySPIFlashKey)(0))
     val uart = new UARTPins(() => PinGen())
-    val i2c = new I2CPins(() => PinGen())
+    //val i2c = new I2CPins(() => PinGen())
     val spi = new SPIPins(() => PinGen(), p(PeripherySPIKey)(0))
   }
   val jtag_reset = Input(Bool())
-  val tlport = new TLBundle(params)
+  val tlport = gen()
+  /*val device = new MemoryDevice
+  val node = AXI4SlaveNode(Seq(AXI4SlavePortParameters(
+    slaves = Seq(AXI4SlaveParameters(
+      address       = Seq(AddressSet(x"8_0000_0000", x"0_FFFF_FFFF")),
+      resources     = device.reg,
+      regionType    = RegionType.UNCACHED,
+      executable    = true,
+      supportsWrite = TransferSizes(1, 128),
+      supportsRead  = TransferSizes(1, 128))),
+    beatBytes = 8)))*/
 }
 
 
@@ -78,7 +88,7 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
 
   // Not actually sure if "sys.outer.memTLNode.head.in.head._1.params" is the
   // correct way to get the params... TODO: Get the correct way
-  val io = IO(new NEDOPlatformIO(sys.outer.memTLNode.head.in.head._1.params) )
+  val io = IO(new NEDOPlatformIO(() => sys.mem_tl.head.head.cloneType) )
 
   // Add in debug-controlled reset.
   sys.reset := ResetCatchAndSync(clock, reset.toBool, 20)
@@ -108,7 +118,7 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
   require (p(NExtTopInterrupts) == 0, "No Top-level interrupts supported");
 
   // I2C
-  I2CPinsFromPort(io.pins.i2c, sys.i2c(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 0)
+  //I2CPinsFromPort(io.pins.i2c, sys.i2c(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 0)
 
   // UART0
   UARTPinsFromPort(io.pins.uart, sys.uart(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 0)
