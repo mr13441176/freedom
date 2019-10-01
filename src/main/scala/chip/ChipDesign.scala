@@ -1,31 +1,26 @@
 package uec.freedom.u500
 
-import Chisel._
+import chisel3._
 import freechips.rocketchip.config._
 import freechips.rocketchip.devices.debug._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.subsystem._
-import freechips.rocketchip.tilelink._
 import sifive.blocks.devices.gpio._
 import sifive.blocks.devices.spi._
 import sifive.blocks.devices.uart._
 import sifive.fpgashells.clocks._
 import sifive.fpgashells.shell._
-import uec.rocketchip.subsystem._
 
 class ChipWrapper()(implicit p: Parameters) extends LazyModule
 {
   val sysClock  = p(ClockInputOverlayKey).head.apply(ClockInputOverlayParams())
-  //val wrangler  = LazyModule(new ResetWrangler)
   val coreClock = ClockSinkNode(freqMHz = p(ChipFrequencyKey))
-  //coreClock := wrangler.node := sysClock
   coreClock := sysClock
 
   // removing the debug trait is invasive, so we hook it up externally for now
   val jt = p(JTAGDebugOverlayKey).headOption.map(_(JTAGDebugOverlayParams())).get
 
-  //val topMod = LazyModule(new ChipDesign(wrangler.node)(p))
   val topMod = LazyModule(new ChipDesign()(p))
 
   override lazy val module = new LazyRawModuleImp(this) {
@@ -47,7 +42,6 @@ class ChipWrapper()(implicit p: Parameters) extends LazyModule
 
 object ChipFrequencyKey extends Field[Double](100.0)
 
-//class ChipDesign(wranglerNode: ClockAdapterNode)(implicit p: Parameters) extends RocketSubsystem
 class ChipDesign()(implicit p: Parameters) extends RocketSubsystem
     with HasPeripheryMaskROMSlave
     with HasPeripheryDebug
@@ -70,23 +64,13 @@ class ChipDesign()(implicit p: Parameters) extends RocketSubsystem
     }
   } }
 
-  //val ddr = p(DDROverlayKey).headOption.map(_(DDROverlayParams(p(ExtMem).get.master.base, wranglerNode)))
-  val ddr = p(DDROverlayKey).headOption.map(_(DDROverlayParams(p(ExtMem).get.master.base)))
-  ddr.get := mbus.toDRAMController(Some("DirectBusAsMemPort"))()
+  val BusOutAsMem = p(AXI4AsMemOverlayKey).headOption.map(_(AXI4AsMemOverlayParams(p(ExtMem).get.master)))
+  BusOutAsMem.get := mbus.toDRAMController(Some("DirectBusAsMemPort"))()
 
   // Work-around for a kernel bug (command-line ignored if /chosen missing)
   val chosen = new DeviceSnippet {
     def describe() = Description("chosen", Map())
   }
-
-  // hook the first PCIe the board has
-  /*val pcies = p(PCIeOverlayKey).headOption.map(_(PCIeOverlayParams(wranglerNode)))
-  pcies.zipWithIndex.map { case((pcieNode, pcieInt), i) =>
-    val pciename = Some(s"pcie_$i")
-    sbus.fromMaster(pciename) { pcieNode }
-    sbus.toFixedWidthSlave(pciename) { pcieNode }
-    ibus.fromSync := pcieInt
-  }*/
 
   // LEDs / GPIOs
   val gpioParams = p(PeripheryGPIOKey)

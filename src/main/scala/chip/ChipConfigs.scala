@@ -32,7 +32,7 @@ class ChipPeripherals extends Config((site, here, up) => {
     MaskROMParams(address = 0x78000000, name = "BootROM"))
   case ExtMem => Some(MemoryPortParams(MasterPortParams(
     base = x"8000_0000",
-    size = x"1000_0000",
+    size = x"4000_0000",  // 1GB
     beatBytes = site(MemoryBusKey).beatBytes,
     idBits = 4), 1))
 })

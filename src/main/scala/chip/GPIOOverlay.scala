@@ -1,13 +1,13 @@
 package uec.freedom.u500
 
 import chisel3._
-import chisel3.util.Cat
+import chisel3.util._
 import sifive.fpgashells.shell._
+import sifive.blocks.devices.gpio._
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
-import sifive.blocks.devices.gpio._
-import freechips.rocketchip.tilelink.TLBusWrapper
-import freechips.rocketchip.interrupts.IntInwardNode
+import freechips.rocketchip.tilelink._
+import freechips.rocketchip.interrupts._
 
 case class GPIOLedOverlayParams(gpioParams: GPIOParams, controlBus: TLBusWrapper, intNode: IntInwardNode)(implicit val p: Parameters)
 case object GPIOLedOverlayKey extends Field[Seq[DesignOverlay[GPIOLedOverlayParams, ModuleValue[UInt]]]](Nil)
