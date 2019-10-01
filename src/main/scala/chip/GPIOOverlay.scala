@@ -1,17 +1,13 @@
-package uec.nedo.chip
+package uec.freedom.u500
 
-import Chisel.Vec
 import chisel3._
-import chisel3.core.CompileOptions
 import chisel3.util.Cat
 import sifive.fpgashells.shell._
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import sifive.blocks.devices.gpio._
-import freechips.rocketchip.subsystem.{BaseSubsystem, PeripheryBus, PeripheryBusKey}
 import freechips.rocketchip.tilelink.TLBusWrapper
 import freechips.rocketchip.interrupts.IntInwardNode
-import sifive.blocks.devices.pinctrl.EnhancedPin
 
 case class GPIOLedOverlayParams(gpioParams: GPIOParams, controlBus: TLBusWrapper, intNode: IntInwardNode)(implicit val p: Parameters)
 case object GPIOLedOverlayKey extends Field[Seq[DesignOverlay[GPIOLedOverlayParams, ModuleValue[UInt]]]](Nil)
