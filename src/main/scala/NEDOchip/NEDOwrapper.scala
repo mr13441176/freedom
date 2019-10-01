@@ -4,9 +4,14 @@ import chisel3._
 import chisel3.util._
 import chisel3.experimental._
 import freechips.rocketchip.config._
+import freechips.rocketchip.tilelink.TLBundle
 import sifive.blocks.devices.pinctrl.{BasePin, EnhancedPin, EnhancedPinCtrl, Pin, PinCtrl}
 import sifive.blocks.devices.gpio._
 import sifive.blocks.devices.spi._
+
+// *********************************************************************************
+// NEDO wrapper - for doing a wrapper with actual ports (tri-state buffers at least)
+// *********************************************************************************
 
 // The port of the GPIOs
 class GPIO_24_A_PORT extends Bundle {
@@ -87,14 +92,17 @@ class NEDOwrapper(implicit p :Parameters) extends RawModule {
   val qspi_cs =  IO(Vec(p(PeripherySPIFlashKey).head.csWidth, Analog(1.W)))
   val qspi_sck = IO(Analog(1.W))
   val qspi_dq = IO(Vec(4, Analog(1.W)))
-  val i2c_sda = IO(Analog(1.W))
-  val i2c_scl = IO(Analog(1.W))
+  //val i2c_sda = IO(Analog(1.W))
+  //val i2c_scl = IO(Analog(1.W))
   val uart_txd = IO(Analog(1.W))
   val uart_rxd = IO(Analog(1.W))
 
   // This clock and reset are only declared. We soon connect them
   val clock = Wire(Clock())
   val reset = Wire(Bool())
+
+  // An option to dynamically assign
+  var tlport : Option[TLBundle] = None
 
   // All the modules declared here have this clock and reset
   withClockAndReset(clock, reset) {
@@ -181,15 +189,142 @@ class NEDOwrapper(implicit p :Parameters) extends RawModule {
     attach(uart_txd, UART_TXD.io.PAD)
 
     // I2C
-    val I2C_SDA = Module(new GPIO_24_A)
-    PinToGPIO_24_A(I2C_SDA.io, system.io.pins.i2c.sda)
-    attach(i2c_sda, I2C_SDA.io.PAD)
-    val I2C_SCL = Module(new GPIO_24_A)
-    PinToGPIO_24_A(I2C_SCL.io, system.io.pins.i2c.scl)
-    attach(i2c_scl, I2C_SCL.io.PAD)
+    //val I2C_SDA = Module(new GPIO_24_A)
+    //PinToGPIO_24_A(I2C_SDA.io, system.io.pins.i2c.sda)
+    //attach(i2c_sda, I2C_SDA.io.PAD)
+    //val I2C_SCL = Module(new GPIO_24_A)
+    //PinToGPIO_24_A(I2C_SCL.io, system.io.pins.i2c.scl)
+    //attach(i2c_scl, I2C_SCL.io.PAD)
 
     // The memory port
     // TODO: This is awfully dirty. I mean it should get the work done
-    system.io.tlport.getElements.head
+    //system.io.tlport.getElements.head
+    tlport = Some(IO(new TLBundle(system.sys.outer.memTLNode.head.in.head._1.params)))
+    tlport.get <> system.io.tlport
   }
+}
+
+// **********************************************************************
+// ** NEDO chip - for doing the only-input/output chip
+// **********************************************************************
+
+object BasePinToRegular {
+  def apply(pin: BasePin) : Bool = {
+    pin.i.ival := false.B
+    pin.o.oval
+  }
+  def apply(pin: BasePin, b: Bool) = {
+    pin.i.ival := b
+  }
+  def asVec(pins: Vec[BasePin]) : Vec[Bool] = {
+    val bools = Wire(Vec(pins.length, Bool()))
+    (bools zip pins).foreach{
+      case (b, pin) =>
+        b := apply(pin)
+    }
+    bools
+  }
+  def fromVec(pins: Vec[BasePin], bools: Vec[Bool]): Unit = {
+    (bools zip pins).foreach{
+      case (b, pin) =>
+        apply(pin, b)
+    }
+  }
+  def apply(pins: Vec[BasePin]) : UInt = {
+    val bools: Vec[Bool] = asVec(pins)
+    bools.asUInt()
+  }
+  def apply(pins: Vec[BasePin], bools: UInt) : Unit = {
+    fromVec(pins, VecInit(bools.toBools))
+  }
+}
+
+trait NEDOports {
+  implicit val p: Parameters
+  // The actual pins of this module.
+  val clock = IO(Input(Clock()))
+  val reset = IO(Input(Bool()))
+  val gpio_in = IO(Input(UInt(p(GPIOInKey).W)))
+  val gpio_out = IO(Output(UInt((p(PeripheryGPIOKey).head.width-p(GPIOInKey)).W)))
+  val jtag_tdi = IO(Input(Bool()))
+  val jtag_tdo = IO(Output(Bool()))
+  val jtag_tck = IO(Input(Bool()))
+  val jtag_tms = IO(Input(Bool()))
+  val jtag_rst = IO(Input(Bool()))
+  val spi_cs = IO(Output(UInt(p(PeripherySPIKey).head.csWidth.W)))
+  val spi_sck = IO(Output(Bool()))
+  val spi_miso = IO(Input(Bool()))
+  val spi_mosi = IO(Output(Bool()))
+  val spi_wp = IO(Output(Bool()))
+  val spi_hold = IO(Output(Bool()))
+  val qspi_cs = IO(Output(UInt(p(PeripherySPIFlashKey).head.csWidth.W)))
+  val qspi_sck = IO(Output(Bool()))
+  val qspi_miso = IO(Input(Bool()))
+  val qspi_mosi = IO(Output(Bool()))
+  val qspi_wp = IO(Output(Bool()))
+  val qspi_hold = IO(Output(Bool()))
+  val uart_txd = IO(Output(Bool()))
+  val uart_rxd = IO(Input(Bool()))
+}
+
+class NEDObase(implicit val p :Parameters) extends RawModule with NEDOports {
+  // An option to dynamically assign
+  var tlportw : Option[TLBundle] = None
+
+  // All the modules declared here have this clock and reset
+  withClockAndReset(clock, reset) {
+    // The platform module
+    val system = Module(new NEDOPlatform)
+
+    // Merge all the gpio vector
+    val vgpio_in = VecInit(gpio_in.toBools)
+    val vgpio_out = Wire(Vec(p(PeripheryGPIOKey).head.width-p(GPIOInKey), Bool()))
+    gpio_out := vgpio_out.asUInt()
+    val gpio = vgpio_in ++ vgpio_out
+    // GPIOs
+    (gpio zip system.io.pins.gpio.pins).zipWithIndex.foreach {
+      case ((g: Bool, pin: BasePin), i: Int) =>
+        if(i < p(GPIOInKey)) BasePinToRegular(pin, g)
+        else g := BasePinToRegular(pin)
+    }
+
+    // JTAG
+    BasePinToRegular(system.io.pins.jtag.TMS, jtag_tms)
+    BasePinToRegular(system.io.pins.jtag.TCK, jtag_tck)
+    BasePinToRegular(system.io.pins.jtag.TDI, jtag_tdi)
+    jtag_tdo := BasePinToRegular(system.io.pins.jtag.TDO)
+    system.io.jtag_reset := jtag_rst
+
+    // QSPI (SPI as flash memory)
+    qspi_cs := BasePinToRegular(system.io.pins.qspi.cs)
+    qspi_sck := BasePinToRegular(system.io.pins.qspi.sck)
+    BasePinToRegular(system.io.pins.qspi.dq(0), qspi_miso)
+    qspi_mosi := BasePinToRegular(system.io.pins.qspi.dq(1))
+    qspi_wp := BasePinToRegular(system.io.pins.qspi.dq(2))
+    qspi_hold := BasePinToRegular(system.io.pins.qspi.dq(3))
+
+    // SPI (SPI as SD?)
+    spi_cs := BasePinToRegular(system.io.pins.spi.cs)
+    spi_sck := BasePinToRegular(system.io.pins.spi.sck)
+    BasePinToRegular(system.io.pins.spi.dq(0), spi_miso)
+    spi_mosi := BasePinToRegular(system.io.pins.spi.dq(1))
+    spi_wp := BasePinToRegular(system.io.pins.spi.dq(2))
+    spi_hold := BasePinToRegular(system.io.pins.spi.dq(3))
+
+    // UART
+    BasePinToRegular(system.io.pins.uart.rxd, uart_rxd)
+    uart_txd := BasePinToRegular(system.io.pins.uart.txd)
+
+    // The memory port
+    tlportw = Some(Wire(new TLBundle(system.sys.outer.memTLNode.head.in.head._1.params)))
+    tlportw.get <> system.io.tlport
+  }
+}
+
+class NEDOchip(implicit override val p :Parameters) extends NEDObase {
+  val tlport = IO(new TLBundle(tlportw.get.params))
+  tlport <> tlportw.get
+}
+
+class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
 }
