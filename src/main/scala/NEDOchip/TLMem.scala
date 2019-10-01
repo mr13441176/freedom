@@ -37,7 +37,7 @@ trait CanHaveMasterTLMemPort { this: BaseSubsystem =>
       )
     })
 
-    memTLNode := mbus.toDRAMController(Some(portName)) {
+    memTLNode := mbus.toFixedWidthPort(Some(portName)) {//.toDRAMController(Some(portName)) {
       TLBuffer() := TLSourceShrinker(1 << memPortParams.idBits)
     }
 

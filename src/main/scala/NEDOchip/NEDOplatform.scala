@@ -1,6 +1,7 @@
 package uec.keystone.nedochip
 
 import chisel3._
+import chisel3.util._
 import freechips.rocketchip.amba.axi4._
 import freechips.rocketchip.config._
 import freechips.rocketchip.subsystem._
@@ -59,7 +60,13 @@ object PinGen {
 // E300ArtyDevKitPlatformIO
 //-------------------------------------------------------------------------
 
-class NEDOPlatformIO[T <: Data](gen: () => T)(implicit val p: Parameters) extends Bundle {
+// TODO: Why this does not exist?
+class TLUL(val params: TLBundleParameters) extends Bundle {
+  val a = Decoupled(new TLBundleA(params))
+  val d = Flipped(Decoupled(new TLBundleD(params)))
+}
+
+class NEDOPlatformIO(val params: TLBundleParameters)(implicit val p: Parameters) extends Bundle {
   val pins = new Bundle {
     val jtag = new JTAGPins(() => PinGen(), false)
     val gpio = new GPIOPins(() => PinGen(), p(PeripheryGPIOKey)(0))
@@ -69,17 +76,7 @@ class NEDOPlatformIO[T <: Data](gen: () => T)(implicit val p: Parameters) extend
     val spi = new SPIPins(() => PinGen(), p(PeripherySPIKey)(0))
   }
   val jtag_reset = Input(Bool())
-  val tlport = gen()
-  /*val device = new MemoryDevice
-  val node = AXI4SlaveNode(Seq(AXI4SlavePortParameters(
-    slaves = Seq(AXI4SlaveParameters(
-      address       = Seq(AddressSet(x"8_0000_0000", x"0_FFFF_FFFF")),
-      resources     = device.reg,
-      regionType    = RegionType.UNCACHED,
-      executable    = true,
-      supportsWrite = TransferSizes(1, 128),
-      supportsRead  = TransferSizes(1, 128))),
-    beatBytes = 8)))*/
+  val tlport = new TLUL(params)
 }
 
 
@@ -88,7 +85,7 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
 
   // Not actually sure if "sys.outer.memTLNode.head.in.head._1.params" is the
   // correct way to get the params... TODO: Get the correct way
-  val io = IO(new NEDOPlatformIO(() => sys.mem_tl.head.head.cloneType) )
+  val io = IO(new NEDOPlatformIO(sys.outer.memTLNode.head.in.head._1.params) )
 
   // Add in debug-controlled reset.
   sys.reset := ResetCatchAndSync(clock, reset.toBool, 20)
@@ -104,10 +101,20 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
   // The TL memory port. This is a configurable one for the address space
   // and the ports are exposed inside the "foreach". Do not worry, there is
   // only one memory (unless you configure multiple memories).
-  sys.mem_tl.foreach{ case i =>
-    i.foreach{ case ioi:TLBundle =>
-      // Connect outside
-      io.tlport <> ioi
+  sys.mem_tl.foreach{
+    case i =>
+      i.foreach{
+        case ioi:TLBundle =>
+          // Connect outside the ones that can be untied
+          io.tlport <> ioi
+          // Tie off the channels we dont need...
+          // ... I mean, we did tell the TLNodeParams that we only want Get and Put
+          ioi.b.bits := (new TLBundleB(sys.outer.memTLNode.head.in.head._1.params)).fromBits(0.U)
+          ioi.b.valid := false.B
+          ioi.c.ready := false.B
+          ioi.e.ready := false.B
+          // Important NOTE: We did check connections until the mbus in verilog
+          // and there is no usage of channels B, C and E (except for some TL Monitors)
     }
   }
 

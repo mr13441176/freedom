@@ -4,8 +4,11 @@ import chisel3._
 import chisel3.util._
 import chisel3.experimental._
 import freechips.rocketchip.config._
-import freechips.rocketchip.tilelink.TLBundle
-import sifive.blocks.devices.pinctrl.{BasePin, EnhancedPin, EnhancedPinCtrl, Pin, PinCtrl}
+import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.subsystem.ExtMem
+import freechips.rocketchip.tilelink._
+import freechips.rocketchip.util._
+import sifive.blocks.devices.pinctrl._
 import sifive.blocks.devices.gpio._
 import sifive.blocks.devices.spi._
 
@@ -102,7 +105,7 @@ class NEDOwrapper(implicit p :Parameters) extends RawModule {
   val reset = Wire(Bool())
 
   // An option to dynamically assign
-  var tlport : Option[TLBundle] = None
+  var tlport : Option[TLUL] = None
 
   // All the modules declared here have this clock and reset
   withClockAndReset(clock, reset) {
@@ -199,7 +202,7 @@ class NEDOwrapper(implicit p :Parameters) extends RawModule {
     // The memory port
     // TODO: This is awfully dirty. I mean it should get the work done
     //system.io.tlport.getElements.head
-    tlport = Some(IO(new TLBundle(system.sys.outer.memTLNode.head.in.head._1.params)))
+    tlport = Some(IO(new TLUL(system.sys.outer.memTLNode.head.in.head._1.params)))
     tlport.get <> system.io.tlport
   }
 }
@@ -269,12 +272,14 @@ trait NEDOports {
 
 class NEDObase(implicit val p :Parameters) extends RawModule with NEDOports {
   // An option to dynamically assign
-  var tlportw : Option[TLBundle] = None
+  var tlportw : Option[TLUL] = None
+  var cacheBlockBytesOpt: Option[Int] = None
 
   // All the modules declared here have this clock and reset
   withClockAndReset(clock, reset) {
     // The platform module
     val system = Module(new NEDOPlatform)
+    cacheBlockBytesOpt = Some(system.sys.outer.cacheBlockBytes)
 
     // Merge all the gpio vector
     val vgpio_in = VecInit(gpio_in.toBools)
@@ -316,15 +321,84 @@ class NEDObase(implicit val p :Parameters) extends RawModule with NEDOports {
     uart_txd := BasePinToRegular(system.io.pins.uart.txd)
 
     // The memory port
-    tlportw = Some(Wire(new TLBundle(system.sys.outer.memTLNode.head.in.head._1.params)))
-    tlportw.get <> system.io.tlport
+    tlportw = Some(system.io.tlport)
   }
+  val cacheBlockBytes = cacheBlockBytesOpt.get
 }
 
 class NEDOchip(implicit override val p :Parameters) extends NEDObase {
-  val tlport = IO(new TLBundle(tlportw.get.params))
-  tlport <> tlportw.get
+  val tlport = IO(new TLUL(tlportw.get.params))
+  tlport.a <> tlportw.get.a
+  tlportw.get.d <> tlport.d
+}
+
+// ********************************************************************
+// NEDODPGA - Just an adaptation of NEDOchip to the FPGA
+// ********************************************************************
+
+import sifive.fpgashells.devices.xilinx.xilinxvc707mig._
+class TLULtoMIG()(implicit p :Parameters) extends LazyModule {
+
+  lazy val module = new LazyModuleImp(this) {
+    val io = IO(new Bundle {
+    })
+  }
+
 }
 
 class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
+
+
+  var ddrport: Option[XilinxVC707MIGIO] = None
+  withClockAndReset(clock, reset) {
+    // Create the DDR
+    val ddr = LazyModule(
+      new XilinxVC707MIG(
+        XilinxVC707MIGParams(
+          address = AddressSet.misaligned(
+            p(ExtMem).get.master.base,
+            0x40000000L * 1 // 1GiB for the VC707DDR
+          )
+        )
+      )
+    )
+
+    // Create a dummy node where we can attach our silly TL port
+    val device = new MemoryDevice
+    val node = TLManagerNode(Seq.tabulate(1) { channel =>
+      val base = AddressSet(p(ExtMem).get.master.base, p(ExtMem).get.master.size - 1)
+      val filter = AddressSet(channel * cacheBlockBytes, ~(0))
+
+      TLManagerPortParameters(
+        managers = Seq(TLManagerParameters(
+          address = base.intersect(filter).toList,
+          resources = device.reg,
+          regionType = RegionType.UNCACHED, // cacheable
+          executable = true,
+          supportsGet = TransferSizes(1, cacheBlockBytes),
+          supportsPutFull = TransferSizes(1, cacheBlockBytes),
+          supportsPutPartial = TransferSizes(1, cacheBlockBytes)
+        )),
+        beatBytes = p(ExtMem).get.master.beatBytes
+      )
+    })
+    //val mem_tl = Wire(HeterogeneousBag.fromNode(node.in))
+    node.in.foreach {
+      case  (bundle, _) =>
+        tlportw.get.a <> bundle.a
+        bundle.d <> tlportw.get.d
+        bundle.b.bits := (new TLBundleB(node.in.head._1.params)).fromBits(0.U)
+        bundle.b.valid := false.B
+        bundle.c.ready := false.B
+        bundle.e.ready := false.B
+    }
+
+    // Attach to the DDR
+    ddr.buffer.node := node
+
+    // Create the actual module, and attach the DDR port
+    val mddr = Module(ddr.module)
+    ddrport = Some(IO(mddr.io.port.cloneType))
+    ddrport.get <> mddr.io.port
+  }
 }
