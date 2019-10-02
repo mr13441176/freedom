@@ -109,7 +109,8 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
           io.tlport <> ioi
           // Tie off the channels we dont need...
           // ... I mean, we did tell the TLNodeParams that we only want Get and Put
-          ioi.b.bits := (new TLBundleB(sys.outer.memTLNode.head.in.head._1.params)).fromBits(0.U)
+
+          ioi.b.bits := 0.U.asTypeOf(new TLBundleB(sys.outer.memTLNode.head.in.head._1.params))
           ioi.b.valid := false.B
           ioi.c.ready := false.B
           ioi.e.ready := false.B

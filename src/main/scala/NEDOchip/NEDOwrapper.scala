@@ -337,68 +337,67 @@ class NEDOchip(implicit override val p :Parameters) extends NEDObase {
 // ********************************************************************
 
 import sifive.fpgashells.devices.xilinx.xilinxvc707mig._
-class TLULtoMIG()(implicit p :Parameters) extends LazyModule {
+class TLULtoMIG(cacheBlockBytes: Int, TLparams: TLBundleParameters)(implicit p :Parameters) extends LazyModule {
+
+  // Create the DDR
+  val ddr = LazyModule(
+    new XilinxVC707MIG(
+      XilinxVC707MIGParams(
+        address = AddressSet.misaligned(
+          p(ExtMem).get.master.base,
+          0x40000000L * 1 // 1GiB for the VC707DDR
+        )
+      )
+    )
+  )
+
+  // Create a dummy node where we can attach our silly TL port
+  val device = new MemoryDevice
+  val node = TLClientNode(Seq.tabulate(1) { channel =>
+    TLClientPortParameters(
+      clients = Seq(TLClientParameters(
+        name = "dummy",
+        sourceId = IdRange(0, 2) // TODO: What is this?
+      ))
+    )
+  })
+
+  // Attach to the DDR
+  ddr.buffer.node := node
 
   lazy val module = new LazyModuleImp(this) {
     val io = IO(new Bundle {
+      val tlport = Flipped(new TLUL(TLparams))
+      var ddrport = new XilinxVC707MIGIO(ddr.depth)
     })
+
+    //val mem_tl = Wire(HeterogeneousBag.fromNode(node.in))
+    node.in.foreach {
+      case  (bundle, _) =>
+        bundle.a <> io.tlport.a
+        io.tlport.d <> bundle.d
+        //bundle.b.bits := (new TLBundleB(TLparams)).fromBits(0.U)
+        bundle.b.ready := false.B
+        bundle.c.valid := false.B
+        bundle.c.bits := 0.U.asTypeOf(new TLBundleC(TLparams))
+        bundle.e.valid := false.B
+        bundle.e.bits := 0.U.asTypeOf(new TLBundleE(TLparams))
+    }
+
+    // Create the actual module, and attach the DDR port
+    io.ddrport <> ddr.module.io.port
   }
 
 }
 
 class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
-
-
   var ddrport: Option[XilinxVC707MIGIO] = None
   withClockAndReset(clock, reset) {
-    // Create the DDR
-    val ddr = LazyModule(
-      new XilinxVC707MIG(
-        XilinxVC707MIGParams(
-          address = AddressSet.misaligned(
-            p(ExtMem).get.master.base,
-            0x40000000L * 1 // 1GiB for the VC707DDR
-          )
-        )
-      )
-    )
-
-    // Create a dummy node where we can attach our silly TL port
-    val device = new MemoryDevice
-    val node = TLManagerNode(Seq.tabulate(1) { channel =>
-      val base = AddressSet(p(ExtMem).get.master.base, p(ExtMem).get.master.size - 1)
-      val filter = AddressSet(channel * cacheBlockBytes, ~(0))
-
-      TLManagerPortParameters(
-        managers = Seq(TLManagerParameters(
-          address = base.intersect(filter).toList,
-          resources = device.reg,
-          regionType = RegionType.UNCACHED, // cacheable
-          executable = true,
-          supportsGet = TransferSizes(1, cacheBlockBytes),
-          supportsPutFull = TransferSizes(1, cacheBlockBytes),
-          supportsPutPartial = TransferSizes(1, cacheBlockBytes)
-        )),
-        beatBytes = p(ExtMem).get.master.beatBytes
-      )
-    })
-    //val mem_tl = Wire(HeterogeneousBag.fromNode(node.in))
-    node.in.foreach {
-      case  (bundle, _) =>
-        tlportw.get.a <> bundle.a
-        bundle.d <> tlportw.get.d
-        bundle.b.bits := (new TLBundleB(node.in.head._1.params)).fromBits(0.U)
-        bundle.b.valid := false.B
-        bundle.c.ready := false.B
-        bundle.e.ready := false.B
-    }
-
-    // Attach to the DDR
-    ddr.buffer.node := node
-
-    // Create the actual module, and attach the DDR port
-    val mddr = Module(ddr.module)
-    ddrport = Some(IO(mddr.io.port.cloneType))
-    ddrport.get <> mddr.io.port
+    // Instance our converter, and connect everything
+    val mod = Module(LazyModule(new TLULtoMIG(cacheBlockBytes, tlportw.get.params)).module)
+    ddrport = Some(IO(mod.io.ddrport.cloneType))
+    ddrport.get <> mod.io.ddrport
+    mod.io.tlport.a <> tlportw.get.a
+    tlportw.get.d <> mod.io.tlport.d
   }
 }
