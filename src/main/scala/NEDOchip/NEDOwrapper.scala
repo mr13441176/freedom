@@ -242,11 +242,8 @@ object BasePinToRegular {
   }
 }
 
-trait NEDOports {
-  implicit val p: Parameters
+class NEDObase(implicit val p :Parameters) extends RawModule {
   // The actual pins of this module.
-  val clock = IO(Input(Clock()))
-  val reset = IO(Input(Bool()))
   val gpio_in = IO(Input(UInt(p(GPIOInKey).W)))
   val gpio_out = IO(Output(UInt((p(PeripheryGPIOKey).head.width-p(GPIOInKey)).W)))
   val jtag_tdi = IO(Input(Bool()))
@@ -268,9 +265,9 @@ trait NEDOports {
   val qspi_hold = IO(Output(Bool()))
   val uart_txd = IO(Output(Bool()))
   val uart_rxd = IO(Input(Bool()))
-}
-
-class NEDObase(implicit val p :Parameters) extends RawModule with NEDOports {
+  // These are later connected
+  val clock = Wire(Clock())
+  val reset = Wire(Bool())
   // An option to dynamically assign
   var tlportw : Option[TLUL] = None
   var cacheBlockBytesOpt: Option[Int] = None
@@ -327,9 +324,16 @@ class NEDObase(implicit val p :Parameters) extends RawModule with NEDOports {
 }
 
 class NEDOchip(implicit override val p :Parameters) extends NEDObase {
+  // Some additional ports to connect to the chip
+  val sys_clk = IO(Input(Clock()))
+  val rst_n = IO(Input(Bool()))
   val tlport = IO(new TLUL(tlportw.get.params))
+  // TL port connection
   tlport.a <> tlportw.get.a
   tlportw.get.d <> tlport.d
+  // Clock and reset connection
+  clock := sys_clk
+  reset := !rst_n
 }
 
 // ********************************************************************
@@ -337,6 +341,8 @@ class NEDOchip(implicit override val p :Parameters) extends NEDObase {
 // ********************************************************************
 
 import sifive.fpgashells.devices.xilinx.xilinxvc707mig._
+import sifive.fpgashells.ip.xilinx.vc707mig._
+import sifive.fpgashells.ip.xilinx._
 class TLULtoMIG(cacheBlockBytes: Int, TLparams: TLBundleParameters)(implicit p :Parameters) extends LazyModule {
 
   // Create the DDR
@@ -371,6 +377,8 @@ class TLULtoMIG(cacheBlockBytes: Int, TLparams: TLBundleParameters)(implicit p :
       var ddrport = new XilinxVC707MIGIO(ddr.depth)
     })
 
+    val depth = ddr.depth
+
     //val mem_tl = Wire(HeterogeneousBag.fromNode(node.in))
     node.in.foreach {
       case  (bundle, _) =>
@@ -391,13 +399,26 @@ class TLULtoMIG(cacheBlockBytes: Int, TLparams: TLBundleParameters)(implicit p :
 }
 
 class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
-  var ddrport: Option[XilinxVC707MIGIO] = None
+  var ddrport: Option[VC707MIGIODDR] = None
+  val sys_clk = IO(Input(Clock()))
+  val sys_clk_i = IBUFG(sys_clk)
+  val rst_n = IO(Input(Bool()))
+  val aresetn = IBUF(rst_n)
+
   withClockAndReset(clock, reset) {
     // Instance our converter, and connect everything
     val mod = Module(LazyModule(new TLULtoMIG(cacheBlockBytes, tlportw.get.params)).module)
-    ddrport = Some(IO(mod.io.ddrport.cloneType))
+    // DDR port only
+    ddrport = Some(IO(new VC707MIGIODDR(mod.depth)))
     ddrport.get <> mod.io.ddrport
+    // TileLink Interface from platform
     mod.io.tlport.a <> tlportw.get.a
     tlportw.get.d <> mod.io.tlport.d
+    // DCM from the MIG generator
+    mod.io.ddrport.sys_clk_i := sys_clk_i.asUInt()
+    mod.io.ddrport.aresetn := aresetn
+    mod.io.ddrport.sys_rst := aresetn // TODO: Not sure
+    clock := mod.io.ddrport.ui_clk
+    reset := mod.io.ddrport.ui_clk_sync_rst
   }
 }

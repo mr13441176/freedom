@@ -23,27 +23,47 @@ class NEDOSystem(implicit p: Parameters) extends RocketSubsystem
     with HasPeripheryMaskROMSlave
     with HasPeripheryDebug
     with HasPeripheryUART
-    with HasPeripherySPI
+//    with HasPeripherySPI
     with HasPeripherySPIFlash
     with HasPeripheryGPIO
 //    with HasPeripheryI2C
 //    with CanHaveMasterAXI4MemPort
     with CanHaveMasterTLMemPort
 {
+  // SPI to MMC conversion. TODO: There is an intention from Sifive to do MMC, but has to be manual
+  val spiDevs = p(PeripherySPIKey).map { ps => SPI.attach(SPIAttachParams(ps, pbus, ibus.fromAsync))}
+  val spiNodes = spiDevs.map { ps => ps.ioNode.makeSink() }
+  val mmc = new MMCDevice(spiDevs.head.device)
+  ResourceBinding {
+    Resource(mmc, "reg").bind(ResourceAddress(0))
+    // TODO: Is missing the "tlclk", but maybe is not needed
+  }
+  // Regular module creation
   override lazy val module = new NEDOSystemModule(this)
+  /*spiNodes.foreach{
+    case s =>
+      val d: Device = s.bundle
+      val mmc = new MMCDevice(new SimpleDevice("mmc", Seq("mmc-spi-slot")))
+      ResourceBinding {
+        Resource(mmc, "reg").bind(ResourceAddress(0))
+      }
+  }*/
 }
 
 class NEDOSystemModule[+L <: NEDOSystem](_outer: L)
   extends RocketSubsystemModuleImp(_outer)
     with HasPeripheryDebugModuleImp
     with HasPeripheryUARTModuleImp
-    with HasPeripherySPIModuleImp
+//    with HasPeripherySPIModuleImp
     with HasPeripherySPIFlashModuleImp
     with HasPeripheryGPIOModuleImp
 //    with HasPeripheryI2CModuleImp
 //    with CanHaveMasterAXI4MemPortModuleImp
     with CanHaveMasterTLMemPortModuleImp
 {
+  // SPI to MMC conversion
+  val spi  = outer.spiNodes.zipWithIndex.map  { case(n,i) => n.makeIO()(ValName(s"spi_$i")) }
+  // Regular module creation
   // Reset vector is set to the location of the mask rom
   val maskROMParams = p(PeripheryMaskROMKey)
   global_reset_vector := maskROMParams(0).address.U
