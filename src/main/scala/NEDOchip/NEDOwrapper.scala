@@ -246,25 +246,32 @@ class NEDObase(implicit val p :Parameters) extends RawModule {
   // The actual pins of this module.
   val gpio_in = IO(Input(UInt(p(GPIOInKey).W)))
   val gpio_out = IO(Output(UInt((p(PeripheryGPIOKey).head.width-p(GPIOInKey)).W)))
-  val jtag_tdi = IO(Input(Bool()))
-  val jtag_tdo = IO(Output(Bool()))
-  val jtag_tck = IO(Input(Bool()))
-  val jtag_tms = IO(Input(Bool()))
-  val jtag_rst = IO(Input(Bool()))
-  val spi_cs = IO(Output(UInt(p(PeripherySPIKey).head.csWidth.W)))
-  val spi_sck = IO(Output(Bool()))
-  val spi_miso = IO(Input(Bool()))
-  val spi_mosi = IO(Output(Bool()))
-  val spi_wp = IO(Output(Bool()))
-  val spi_hold = IO(Output(Bool()))
-  val qspi_cs = IO(Output(UInt(p(PeripherySPIFlashKey).head.csWidth.W)))
-  val qspi_sck = IO(Output(Bool()))
-  val qspi_miso = IO(Input(Bool()))
-  val qspi_mosi = IO(Output(Bool()))
-  val qspi_wp = IO(Output(Bool()))
-  val qspi_hold = IO(Output(Bool()))
+  val jtag = IO(new Bundle {
+    val jtag_TDI = (Input(Bool()))
+    val jtag_TDO = (Output(Bool()))
+    val jtag_TCK = (Input(Bool()))
+    val jtag_TMS = (Input(Bool()))
+  })
+  val sdio = IO(new Bundle {
+    val sdio_clk = (Output(Bool()))
+    val sdio_cmd = (Output(Bool()))
+    val sdio_dat_0 = (Input(Bool()))
+    val sdio_dat_1 = (Analog(1.W))
+    val sdio_dat_2 = (Analog(1.W))
+    val sdio_dat_3 = (Output(Bool()))
+  })
+  val qspi = IO(new Bundle {
+    val qspi_cs = (Output(UInt(p(PeripherySPIFlashKey).head.csWidth.W)))
+    val qspi_sck = (Output(Bool()))
+    val qspi_miso = (Input(Bool()))
+    val qspi_mosi = (Output(Bool()))
+    val qspi_wp = (Output(Bool()))
+    val qspi_hold = (Output(Bool()))
+  })
   val uart_txd = IO(Output(Bool()))
   val uart_rxd = IO(Input(Bool()))
+  val uart_rtsn = IO(Output(Bool()))
+  val uart_ctsn = IO(Input(Bool()))
   // These are later connected
   val clock = Wire(Clock())
   val reset = Wire(Bool())
@@ -291,31 +298,32 @@ class NEDObase(implicit val p :Parameters) extends RawModule {
     }
 
     // JTAG
-    BasePinToRegular(system.io.pins.jtag.TMS, jtag_tms)
-    BasePinToRegular(system.io.pins.jtag.TCK, jtag_tck)
-    BasePinToRegular(system.io.pins.jtag.TDI, jtag_tdi)
-    jtag_tdo := BasePinToRegular(system.io.pins.jtag.TDO)
-    system.io.jtag_reset := jtag_rst
+    BasePinToRegular(system.io.pins.jtag.TMS, jtag.jtag_TMS)
+    BasePinToRegular(system.io.pins.jtag.TCK, jtag.jtag_TCK)
+    BasePinToRegular(system.io.pins.jtag.TDI, jtag.jtag_TDI)
+    jtag.jtag_TDO := BasePinToRegular(system.io.pins.jtag.TDO)
+    system.io.jtag_reset := reset
 
     // QSPI (SPI as flash memory)
-    qspi_cs := BasePinToRegular(system.io.pins.qspi.cs)
-    qspi_sck := BasePinToRegular(system.io.pins.qspi.sck)
-    BasePinToRegular(system.io.pins.qspi.dq(0), qspi_miso)
-    qspi_mosi := BasePinToRegular(system.io.pins.qspi.dq(1))
-    qspi_wp := BasePinToRegular(system.io.pins.qspi.dq(2))
-    qspi_hold := BasePinToRegular(system.io.pins.qspi.dq(3))
+    qspi.qspi_cs := BasePinToRegular(system.io.pins.qspi.cs)
+    qspi.qspi_sck := BasePinToRegular(system.io.pins.qspi.sck)
+    BasePinToRegular(system.io.pins.qspi.dq(0), qspi.qspi_miso)
+    qspi.qspi_mosi := BasePinToRegular(system.io.pins.qspi.dq(1))
+    qspi.qspi_wp := BasePinToRegular(system.io.pins.qspi.dq(2))
+    qspi.qspi_hold := BasePinToRegular(system.io.pins.qspi.dq(3))
 
     // SPI (SPI as SD?)
-    spi_cs := BasePinToRegular(system.io.pins.spi.cs)
-    spi_sck := BasePinToRegular(system.io.pins.spi.sck)
-    BasePinToRegular(system.io.pins.spi.dq(0), spi_miso)
-    spi_mosi := BasePinToRegular(system.io.pins.spi.dq(1))
-    spi_wp := BasePinToRegular(system.io.pins.spi.dq(2))
-    spi_hold := BasePinToRegular(system.io.pins.spi.dq(3))
+    sdio.sdio_dat_3 := BasePinToRegular(system.io.pins.spi.cs.head)
+    sdio.sdio_clk := BasePinToRegular(system.io.pins.spi.sck)
+    BasePinToRegular(system.io.pins.spi.dq(0), RegNext(RegNext(sdio.sdio_dat_0))) // NOTE: We saw like this on SDIOOverlay
+    sdio.sdio_cmd := BasePinToRegular(system.io.pins.spi.dq(1))
+    BasePinToRegular(system.io.pins.spi.dq(2)) // Ignored
+    BasePinToRegular(system.io.pins.spi.dq(3)) // Ignored
 
     // UART
     BasePinToRegular(system.io.pins.uart.rxd, uart_rxd)
     uart_txd := BasePinToRegular(system.io.pins.uart.txd)
+    uart_rtsn := false.B
 
     // The memory port
     tlportw = Some(system.io.tlport)
@@ -343,8 +351,8 @@ class NEDOchip(implicit override val p :Parameters) extends NEDObase {
 import sifive.fpgashells.devices.xilinx.xilinxvc707mig._
 import sifive.fpgashells.ip.xilinx.vc707mig._
 import sifive.fpgashells.ip.xilinx._
-class TLULtoMIG(cacheBlockBytes: Int, TLparams: TLBundleParameters)(implicit p :Parameters) extends LazyModule {
 
+class TLULtoMIG(cacheBlockBytes: Int, TLparams: TLBundleParameters)(implicit p :Parameters) extends LazyModule {
   // Create the DDR
   val ddr = LazyModule(
     new XilinxVC707MIG(
@@ -399,18 +407,22 @@ class TLULtoMIG(cacheBlockBytes: Int, TLparams: TLBundleParameters)(implicit p :
 }
 
 class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
-  var ddrport: Option[VC707MIGIODDR] = None
-  val sys_clk = IO(Input(Clock()))
-  val sys_clk_i = IBUFG(sys_clk)
-  val rst_n = IO(Input(Bool()))
-  val aresetn = IBUF(rst_n)
+  var ddr: Option[VC707MIGIODDR] = None
+  val sys_clock_p = IO(Input(Clock()))
+  val sys_clock_n = IO(Input(Clock()))
+  val sys_clock_ibufds = Module(new IBUFDS())
+  val sys_clk_i = sys_clock_ibufds.io.O
+  sys_clock_ibufds.io.I := sys_clock_p
+  sys_clock_ibufds.io.IB := sys_clock_n
+  val rst = IO(Input(Bool()))
+  val aresetn = !IBUF(rst)
 
   withClockAndReset(clock, reset) {
     // Instance our converter, and connect everything
     val mod = Module(LazyModule(new TLULtoMIG(cacheBlockBytes, tlportw.get.params)).module)
     // DDR port only
-    ddrport = Some(IO(new VC707MIGIODDR(mod.depth)))
-    ddrport.get <> mod.io.ddrport
+    ddr = Some(IO(new VC707MIGIODDR(mod.depth)))
+    ddr.get <> mod.io.ddrport
     // TileLink Interface from platform
     mod.io.tlport.a <> tlportw.get.a
     tlportw.get.d <> mod.io.tlport.d

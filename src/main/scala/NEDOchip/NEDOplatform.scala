@@ -36,18 +36,10 @@ class NEDOSystem(implicit p: Parameters) extends RocketSubsystem
   val mmc = new MMCDevice(spiDevs.head.device)
   ResourceBinding {
     Resource(mmc, "reg").bind(ResourceAddress(0))
-    // TODO: Is missing the "tlclk", but maybe is not needed
   }
+  val tlclock = new FixedClockResource("tlclk", 50) // 50 is in MHz
   // Regular module creation
   override lazy val module = new NEDOSystemModule(this)
-  /*spiNodes.foreach{
-    case s =>
-      val d: Device = s.bundle
-      val mmc = new MMCDevice(new SimpleDevice("mmc", Seq("mmc-spi-slot")))
-      ResourceBinding {
-        Resource(mmc, "reg").bind(ResourceAddress(0))
-      }
-  }*/
 }
 
 class NEDOSystemModule[+L <: NEDOSystem](_outer: L)

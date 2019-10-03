@@ -32,8 +32,8 @@ class ChipPeripherals extends Config((site, here, up) => {
   case PeripherySPIKey => List(
     SPIParams(rAddress = BigInt(0x64001000L)))
   case PeripheryGPIOKey => List(
-    GPIOParams(address = BigInt(0x64002000L), width = 4))
-  case GPIOInKey => 2
+    GPIOParams(address = BigInt(0x64002000L), width = 16))
+  case GPIOInKey => 8
   //case PeripheryI2CKey => List(
   //  I2CParams(address = 0x64003000))
   case PeripherySPIFlashKey => List(
@@ -44,8 +44,8 @@ class ChipPeripherals extends Config((site, here, up) => {
   case PeripheryMaskROMKey => List(
     MaskROMParams(address = 0x78000000, name = "BootROM"))
   case ExtMem => Some(MemoryPortParams(MasterPortParams(
-    base = x"8_0000_0000",
-    size = x"1_0000_0000",
+    base = x"0_8000_0000",
+    size = x"0_8000_0000",
     beatBytes = site(MemoryBusKey).beatBytes,
     idBits = 4), 1))
 })
