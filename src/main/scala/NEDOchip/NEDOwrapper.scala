@@ -11,6 +11,7 @@ import freechips.rocketchip.util._
 import sifive.blocks.devices.pinctrl._
 import sifive.blocks.devices.gpio._
 import sifive.blocks.devices.spi._
+import sifive.fpgashells.clocks.{PLLInClockParameters, PLLOutClockParameters, PLLParameters}
 
 // *********************************************************************************
 // NEDO wrapper - for doing a wrapper with actual ports (tri-state buffers at least)
@@ -275,6 +276,7 @@ class NEDObase(implicit val p :Parameters) extends RawModule {
   // These are later connected
   val clock = Wire(Clock())
   val reset = Wire(Bool())
+  val ndreset = Wire(Bool())
   // An option to dynamically assign
   var tlportw : Option[TLUL] = None
   var cacheBlockBytesOpt: Option[Int] = None
@@ -283,6 +285,7 @@ class NEDObase(implicit val p :Parameters) extends RawModule {
   withClockAndReset(clock, reset) {
     // The platform module
     val system = Module(new NEDOPlatform)
+    ndreset := system.io.ndreset
     cacheBlockBytesOpt = Some(system.sys.outer.cacheBlockBytes)
 
     // Merge all the gpio vector
@@ -341,7 +344,7 @@ class NEDOchip(implicit override val p :Parameters) extends NEDObase {
   tlportw.get.d <> tlport.d
   // Clock and reset connection
   clock := sys_clk
-  reset := !rst_n
+  reset := !rst_n | ndreset
 }
 
 // ********************************************************************
@@ -415,22 +418,42 @@ class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
   sys_clock_ibufds.io.I := sys_clock_p
   sys_clock_ibufds.io.IB := sys_clock_n
   val rst = IO(Input(Bool()))
-  val aresetn = !IBUF(rst)
+  val areset = IBUF(rst)
 
   withClockAndReset(clock, reset) {
     // Instance our converter, and connect everything
     val mod = Module(LazyModule(new TLULtoMIG(cacheBlockBytes, tlportw.get.params)).module)
+
     // DDR port only
     ddr = Some(IO(new VC707MIGIODDR(mod.depth)))
     ddr.get <> mod.io.ddrport
+
     // TileLink Interface from platform
     mod.io.tlport.a <> tlportw.get.a
     tlportw.get.d <> mod.io.tlport.d
-    // DCM from the MIG generator
+
+    // PLL instance
+    val c = new PLLParameters(
+      name ="pll",
+      input = PLLInClockParameters(
+        freqMHz = 200.0,
+        feedback = true
+      ),
+      req = Seq(
+        PLLOutClockParameters(
+          freqMHz = 50.0
+        )
+      )
+    )
+    val pll = Module(new Series7MMCM(c))
+    pll.io.clk_in1 := sys_clk_i
+    pll.io.reset := areset
+
+    // MIG connections, like resets and stuff
     mod.io.ddrport.sys_clk_i := sys_clk_i.asUInt()
-    mod.io.ddrport.aresetn := aresetn
-    mod.io.ddrport.sys_rst := aresetn // TODO: Not sure
-    clock := mod.io.ddrport.ui_clk
-    reset := mod.io.ddrport.ui_clk_sync_rst
+    mod.io.ddrport.aresetn := !ResetCatchAndSync(pll.io.clk_out1.get, areset, 20) // TODO: Is delayed, but I am not sure
+    mod.io.ddrport.sys_rst := areset // This is ok
+    clock := pll.io.clk_out1.get // Hopefully this is ok
+    reset := areset | ndreset
   }
 }

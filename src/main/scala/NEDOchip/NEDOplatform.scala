@@ -88,6 +88,7 @@ class NEDOPlatformIO(val params: TLBundleParameters)(implicit val p: Parameters)
     val spi = new SPIPins(() => PinGen(), p(PeripherySPIKey)(0))
   }
   val jtag_reset = Input(Bool())
+  val ndreset = Output(Bool())
   val tlport = new TLUL(params)
 }
 
@@ -159,4 +160,6 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
   JTAGPinsFromPort(io.pins.jtag, sjtag.jtag)
   sjtag.reset := io.jtag_reset
   sjtag.mfr_id := p(JtagDTMKey).idcodeManufId.U(11.W)
+
+  io.ndreset := sys.debug.ndreset
 }
