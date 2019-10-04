@@ -44,7 +44,8 @@ hex: $(hex)
 
 romgen := $(BUILD_DIR)/rom.v
 $(romgen): $(hex)
-	$(rocketchip_dir)/scripts/vlsi_rom_gen $(ROMCONF) $< > $@
+	#$(rocketchip_dir)/scripts/vlsi_rom_gen $(ROMCONF) $< > $@
+	$(base_dir)/vlsi_rom_gen_real $(ROMCONF) $< $(hex) > $@
 
 .PHONY: romgen
 romgen: $(romgen)
