@@ -245,6 +245,7 @@ class NEDOchip(implicit override val p :Parameters) extends NEDObase {
   // Some additional ports to connect to the chip
   val sys_clk = IO(Input(Clock()))
   val rst_n = IO(Input(Bool()))
+  val jrst_n = IO(Input(Bool()))
   val tlport = IO(new TLUL(tlportw.get.params))
   // TL port connection
   tlport.a <> tlportw.get.a
@@ -252,7 +253,7 @@ class NEDOchip(implicit override val p :Parameters) extends NEDObase {
   // Clock and reset connection
   clock := sys_clk
   reset := !rst_n | ndreset
-  areset := !rst_n
+  areset := !jrst_n
 }
 
 // ********************************************************************
@@ -269,10 +270,12 @@ class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
   val sys_clk_i = sys_clock_ibufds.io.O
   sys_clock_ibufds.io.I := sys_clock_p
   sys_clock_ibufds.io.IB := sys_clock_n
-  val rst = IO(Input(Bool()))
-  areset := IBUF(rst)
-  val clk_rst = IO(Input(Bool()))
-  val ckrst = IBUF(clk_rst)
+  val rst_0 = IO(Input(Bool()))
+  val rst_1 = IO(Input(Bool()))
+  val rst_2 = IO(Input(Bool()))
+  val reset_0 = IBUF(rst_0)
+  val reset_1 = IBUF(rst_1)
+  val reset_2 = IBUF(rst_2)
 
   withClockAndReset(clock, reset) {
     // Instance our converter, and connect everything
@@ -301,20 +304,17 @@ class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
     )
     val pll = Module(new Series7MMCM(c))
     pll.io.clk_in1 := sys_clk_i
-    pll.io.reset := ckrst
-
-    // TODO: Remove me
-    val (cout, _) = Counter(true.B, 256)
-    gpio_out := cout
+    pll.io.reset := reset_0
 
     // MIG connections, like resets and stuff
     mod.io.ddrport.sys_clk_i := sys_clk_i.asUInt()
-    mod.io.ddrport.aresetn := !ResetCatchAndSync(pll.io.clk_out1.get, ckrst, 20) // TODO: Is delayed, but I am not sure
+    mod.io.ddrport.aresetn := !ResetCatchAndSync(pll.io.clk_out1.get, reset_0, 20) // TODO: Is delayed, but I am not sure
     mod.io.ddrport.sys_rst := areset // This is ok
 
     // Main clock and reset assignments
     clock := pll.io.clk_out1.get // Hopefully this is ok
-    reset := areset | ndreset | !pll.io.locked
+    reset := reset_1 | ndreset
+    areset := reset_2 | ndreset
   }
 }
 
@@ -325,7 +325,9 @@ class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
 class NEDOFPGAQuartus(implicit override val p :Parameters) extends NEDObase {
   val ddr = IO( new QuartusIO )
   val clk = IO(Input(Clock()))
-  val reset_n = IO(Input(Bool()))
+  val reset_0_n = IO(Input(Bool()))
+  val reset_1_n = IO(Input(Bool()))
+  val reset_2_n = IO(Input(Bool()))
 
   withClockAndReset(clock, reset) {
     // Instance our converter, and connect everything
@@ -340,11 +342,11 @@ class NEDOFPGAQuartus(implicit override val p :Parameters) extends NEDObase {
 
     // MIG connections, like resets and stuff
     mod.io.ckrst.clk_clk := clk.asUInt()
-    mod.io.ckrst.reset_reset_n := reset_n
+    mod.io.ckrst.reset_reset_n := reset_0_n
 
     // Main clock and reset assignments
     clock := mod.io.ckrst.dimmclk_clk
-    reset := !reset_n
-    areset := !reset_n
+    reset := !reset_1_n | ndreset
+    areset := !reset_2_n
   }
 }
