@@ -23,11 +23,7 @@ abstract class AXI4AsMemOverlay[IO <: Data](val params: AXI4AsMemOverlayParams)
   val ioNode = BundleBridgeSource(() => AXI4OutAsMem.module.io.cloneType)
   val ioNodeSink = shell { ioNode.makeSink() }
 
-  def ioFactory = new AXI4Bundle( AXI4BundleParameters (
-    log2Ceil(slaveParam.maxAddress+1),    // addrBits
-    slaveParam.beatBytes * 8,             // dataBits
-    log2Ceil(params.masterParam.idBits)   // idBits
-  ) )
+  def ioFactory = new AXI4Bundle(AXI4OutAsMem.module.axi_async.params)
   def designOutput = AXI4OutAsMem.node
 
   InModuleBody {
@@ -69,11 +65,7 @@ class AXI4AsMem(masterParam: MasterPortParams)(implicit p: Parameters) extends L
   lazy val module = new LazyModuleImp(this) {
     val (axi_async, _) = axi4node.in(0)
     val io = IO(new Bundle {
-      val port = new AXI4Bundle( AXI4BundleParameters (
-        log2Ceil(slaveParam.maxAddress+1),  // addrBits
-        slaveParam.beatBytes * 8,           // dataBits
-        log2Ceil(masterParam.idBits)        // idBits
-      ) )
+      val port = new AXI4Bundle(axi_async.params)
     })
     io.port <> axi_async
   }
