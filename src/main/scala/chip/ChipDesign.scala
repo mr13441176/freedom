@@ -64,7 +64,7 @@ class ChipDesign()(implicit p: Parameters) extends RocketSubsystem
     }
   } }
 
-  val BusOutAsMem = p(AXI4AsMemOverlayKey).headOption.map(_(AXI4AsMemOverlayParams(p(ExtMem).get.master)))
+  val BusOutAsMem = p(BusAsMemOverlayKey).headOption.map(_(BusAsMemOverlayParams(p(ExtMem).get.master,cacheBlockBytes)))
   BusOutAsMem.get := mbus.toDRAMController(Some("DirectBusAsMemPort"))()
 
   // Work-around for a kernel bug (command-line ignored if /chosen missing)

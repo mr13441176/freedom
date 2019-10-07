@@ -26,8 +26,8 @@ class ChipPeripherals extends Config((site, here, up) => {
   case PeripherySPIKey => List(
     SPIParams(rAddress = BigInt(0x64001000L)))
   case PeripheryGPIOKey => List(
-    GPIOParams(address = BigInt(0x64002000L), width = 8),
-    GPIOParams(address = BigInt(0x64003000L), width = 8))
+    GPIOParams(address = BigInt(0x64002000L), width = 4), //leds
+    GPIOParams(address = BigInt(0x64003000L), width = 8)) //switches
   case PeripheryMaskROMKey => List(
     MaskROMParams(address = 0x78000000, name = "BootROM"))
   case ExtMem => Some(MemoryPortParams(MasterPortParams(
