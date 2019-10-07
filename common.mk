@@ -27,6 +27,7 @@ PATCHVERILOG ?= ""
 BOOTROM_DIR ?= ""
 
 base_dir := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+export base_dir := $(base_dir)
 export rocketchip_dir := $(base_dir)/rocket-chip
 SBT ?= java -jar $(rocketchip_dir)/sbt-launch.jar ++2.12.4
 

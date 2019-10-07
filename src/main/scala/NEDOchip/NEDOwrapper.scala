@@ -5,78 +5,15 @@ import chisel3.util._
 import chisel3.experimental._
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
-import freechips.rocketchip.subsystem.ExtMem
-import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
 import sifive.blocks.devices.pinctrl._
 import sifive.blocks.devices.gpio._
 import sifive.blocks.devices.spi._
-import sifive.fpgashells.clocks.{PLLInClockParameters, PLLOutClockParameters, PLLParameters}
+import sifive.fpgashells.clocks._
 
 // *********************************************************************************
 // NEDO wrapper - for doing a wrapper with actual ports (tri-state buffers at least)
 // *********************************************************************************
-
-// The port of the GPIOs
-class GPIO_24_A_PORT extends Bundle {
-  val IE = Input(Bool())
-  val OE = Input(Bool())
-  val DS = Input(Bool())
-  val PE = Input(Bool())
-  val O = Input(Bool())
-  val I = Output(Bool())
-  val PAD = Analog(1.W)
-}
-
-// The blackbox instantiation for the GPIOs
-class GPIO_24_A extends BlackBox {
-  val io = IO(new GPIO_24_A_PORT)
-}
-
-// BasePin or ExtendedPin to the GPIO port conversion
-object PinToGPIO_24_A {
-  def apply(io: GPIO_24_A_PORT, pin: EnhancedPin): Unit = {
-    io.DS := pin.o.ds
-    io.PE := pin.o.pue
-    io.O := pin.o.oval
-    io.OE := pin.o.oe
-    io.IE := pin.o.ie
-    pin.i.ival := io.I
-  }
-  def apply(io: GPIO_24_A_PORT, pin: BasePin, pullup: Boolean = false): Unit = {
-    io.DS := false.B
-    io.PE := pullup.B
-    io.O := pin.o.oval
-    io.OE := pin.o.oe
-    io.IE := pin.o.ie
-    pin.i.ival := io.I
-  }
-  def asOutput(io: GPIO_24_A_PORT, in: Bool): Unit = {
-    io.DS := false.B
-    io.PE := false.B
-    io.O := in
-    io.OE := true.B
-    io.IE := false.B
-    //io.I ignored
-  }
-  def asInput(io: GPIO_24_A_PORT, pullup: Boolean = false): Bool = {
-    io.DS := false.B
-    io.PE := pullup.B
-    io.O := false.B
-    io.OE := false.B
-    io.IE := true.B
-    io.I
-  }
-}
-
-class XTAL_DRV extends BlackBox {
-  val io = IO(new Bundle{
-    val E = Input(Bool())
-    val C = Output(Clock())
-    val XP = Analog(1.W)
-    val XN = Analog(1.W)
-  })
-}
 
 class NEDOwrapper(implicit p :Parameters) extends RawModule {
   // The actual pins of this module.
@@ -212,37 +149,6 @@ class NEDOwrapper(implicit p :Parameters) extends RawModule {
 // ** NEDO chip - for doing the only-input/output chip
 // **********************************************************************
 
-object BasePinToRegular {
-  def apply(pin: BasePin) : Bool = {
-    pin.i.ival := false.B
-    pin.o.oval
-  }
-  def apply(pin: BasePin, b: Bool) = {
-    pin.i.ival := b
-  }
-  def asVec(pins: Vec[BasePin]) : Vec[Bool] = {
-    val bools = Wire(Vec(pins.length, Bool()))
-    (bools zip pins).foreach{
-      case (b, pin) =>
-        b := apply(pin)
-    }
-    bools
-  }
-  def fromVec(pins: Vec[BasePin], bools: Vec[Bool]): Unit = {
-    (bools zip pins).foreach{
-      case (b, pin) =>
-        apply(pin, b)
-    }
-  }
-  def apply(pins: Vec[BasePin]) : UInt = {
-    val bools: Vec[Bool] = asVec(pins)
-    bools.asUInt()
-  }
-  def apply(pins: Vec[BasePin], bools: UInt) : Unit = {
-    fromVec(pins, VecInit(bools.toBools))
-  }
-}
-
 class NEDObase(implicit val p :Parameters) extends RawModule {
   // The actual pins of this module.
   val gpio_in = IO(Input(UInt(p(GPIOInKey).W)))
@@ -275,8 +181,9 @@ class NEDObase(implicit val p :Parameters) extends RawModule {
   val uart_ctsn = IO(Input(Bool()))
   // These are later connected
   val clock = Wire(Clock())
-  val reset = Wire(Bool())
-  val ndreset = Wire(Bool())
+  val reset = Wire(Bool()) // System reset (for cores)
+  val areset = Wire(Bool()) // Global reset (a BUFFd version of the reset from the button)
+  val ndreset = Wire(Bool()) // Debug reset (The reset you can trigger from JTAG)
   // An option to dynamically assign
   var tlportw : Option[TLUL] = None
   var cacheBlockBytesOpt: Option[Int] = None
@@ -305,7 +212,7 @@ class NEDObase(implicit val p :Parameters) extends RawModule {
     BasePinToRegular(system.io.pins.jtag.TCK, jtag.jtag_TCK)
     BasePinToRegular(system.io.pins.jtag.TDI, jtag.jtag_TDI)
     jtag.jtag_TDO := BasePinToRegular(system.io.pins.jtag.TDO)
-    system.io.jtag_reset := reset
+    system.io.jtag_reset := areset
 
     // QSPI (SPI as flash memory)
     qspi.qspi_cs := BasePinToRegular(system.io.pins.qspi.cs)
@@ -338,6 +245,7 @@ class NEDOchip(implicit override val p :Parameters) extends NEDObase {
   // Some additional ports to connect to the chip
   val sys_clk = IO(Input(Clock()))
   val rst_n = IO(Input(Bool()))
+  val jrst_n = IO(Input(Bool()))
   val tlport = IO(new TLUL(tlportw.get.params))
   // TL port connection
   tlport.a <> tlportw.get.a
@@ -345,69 +253,14 @@ class NEDOchip(implicit override val p :Parameters) extends NEDObase {
   // Clock and reset connection
   clock := sys_clk
   reset := !rst_n | ndreset
+  areset := !jrst_n
 }
 
 // ********************************************************************
 // NEDODPGA - Just an adaptation of NEDOchip to the FPGA
 // ********************************************************************
-
-import sifive.fpgashells.devices.xilinx.xilinxvc707mig._
 import sifive.fpgashells.ip.xilinx.vc707mig._
 import sifive.fpgashells.ip.xilinx._
-
-class TLULtoMIG(cacheBlockBytes: Int, TLparams: TLBundleParameters)(implicit p :Parameters) extends LazyModule {
-  // Create the DDR
-  val ddr = LazyModule(
-    new XilinxVC707MIG(
-      XilinxVC707MIGParams(
-        address = AddressSet.misaligned(
-          p(ExtMem).get.master.base,
-          0x40000000L * 1 // 1GiB for the VC707DDR
-        )
-      )
-    )
-  )
-
-  // Create a dummy node where we can attach our silly TL port
-  val device = new MemoryDevice
-  val node = TLClientNode(Seq.tabulate(1) { channel =>
-    TLClientPortParameters(
-      clients = Seq(TLClientParameters(
-        name = "dummy",
-        sourceId = IdRange(0, 2) // TODO: What is this?
-      ))
-    )
-  })
-
-  // Attach to the DDR
-  ddr.buffer.node := node
-
-  lazy val module = new LazyModuleImp(this) {
-    val io = IO(new Bundle {
-      val tlport = Flipped(new TLUL(TLparams))
-      var ddrport = new XilinxVC707MIGIO(ddr.depth)
-    })
-
-    val depth = ddr.depth
-
-    //val mem_tl = Wire(HeterogeneousBag.fromNode(node.in))
-    node.in.foreach {
-      case  (bundle, _) =>
-        bundle.a <> io.tlport.a
-        io.tlport.d <> bundle.d
-        //bundle.b.bits := (new TLBundleB(TLparams)).fromBits(0.U)
-        bundle.b.ready := false.B
-        bundle.c.valid := false.B
-        bundle.c.bits := 0.U.asTypeOf(new TLBundleC(TLparams))
-        bundle.e.valid := false.B
-        bundle.e.bits := 0.U.asTypeOf(new TLBundleE(TLparams))
-    }
-
-    // Create the actual module, and attach the DDR port
-    io.ddrport <> ddr.module.io.port
-  }
-
-}
 
 class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
   var ddr: Option[VC707MIGIODDR] = None
@@ -417,8 +270,12 @@ class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
   val sys_clk_i = sys_clock_ibufds.io.O
   sys_clock_ibufds.io.I := sys_clock_p
   sys_clock_ibufds.io.IB := sys_clock_n
-  val rst = IO(Input(Bool()))
-  val areset = IBUF(rst)
+  val rst_0 = IO(Input(Bool()))
+  val rst_1 = IO(Input(Bool()))
+  val rst_2 = IO(Input(Bool()))
+  val reset_0 = IBUF(rst_0)
+  val reset_1 = IBUF(rst_1)
+  val reset_2 = IBUF(rst_2)
 
   withClockAndReset(clock, reset) {
     // Instance our converter, and connect everything
@@ -447,13 +304,49 @@ class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
     )
     val pll = Module(new Series7MMCM(c))
     pll.io.clk_in1 := sys_clk_i
-    pll.io.reset := areset
+    pll.io.reset := reset_0
 
     // MIG connections, like resets and stuff
     mod.io.ddrport.sys_clk_i := sys_clk_i.asUInt()
-    mod.io.ddrport.aresetn := !ResetCatchAndSync(pll.io.clk_out1.get, areset, 20) // TODO: Is delayed, but I am not sure
+    mod.io.ddrport.aresetn := !ResetCatchAndSync(pll.io.clk_out1.get, reset_0, 20) // TODO: Is delayed, but I am not sure
     mod.io.ddrport.sys_rst := areset // This is ok
+
+    // Main clock and reset assignments
     clock := pll.io.clk_out1.get // Hopefully this is ok
-    reset := areset | ndreset
+    reset := reset_1 | ndreset
+    areset := reset_2 | ndreset
+  }
+}
+
+// ********************************************************************
+// NEDODPGAQuartus - Just an adaptation of NEDOchip to the FPGA in Quartus
+// ********************************************************************
+
+class NEDOFPGAQuartus(implicit override val p :Parameters) extends NEDObase {
+  val ddr = IO( new QuartusIO )
+  val clk = IO(Input(Clock()))
+  val reset_0_n = IO(Input(Bool()))
+  val reset_1_n = IO(Input(Bool()))
+  val reset_2_n = IO(Input(Bool()))
+
+  withClockAndReset(clock, reset) {
+    // Instance our converter, and connect everything
+    val mod = Module(LazyModule(new TLULtoQuartusPlatform(cacheBlockBytes, tlportw.get.params)).module)
+
+    // DDR port only\
+    ddr <> mod.io.qport
+
+    // TileLink Interface from platform
+    mod.io.tlport.a <> tlportw.get.a
+    tlportw.get.d <> mod.io.tlport.d
+
+    // MIG connections, like resets and stuff
+    mod.io.ckrst.clk_clk := clk.asUInt()
+    mod.io.ckrst.reset_reset_n := reset_0_n
+
+    // Main clock and reset assignments
+    clock := mod.io.ckrst.dimmclk_clk
+    reset := !reset_1_n | ndreset
+    areset := !reset_2_n
   }
 }
