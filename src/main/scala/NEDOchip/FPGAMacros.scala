@@ -75,20 +75,20 @@ class TLULtoMIG(cacheBlockBytes: Int, TLparams: TLBundleParameters)(implicit p :
 // ** For Quartus-based FPGAs
 
 class QuartusDDR extends Bundle {
-  val mem_a                = Output(Bits((14).W))
-  val mem_ba               = Output(Bits((3).W))
-  val mem_ck               = Output(Bits((2).W))
-  val mem_ck_n             = Output(Bits((2).W))
-  val mem_cke              = Output(Bits((1).W))
-  val mem_cs_n             = Output(Bits((1).W))
-  val mem_dm               = Output(Bits((8).W))
-  val mem_ras_n            = Output(Bool())
-  val mem_cas_n            = Output(Bool())
-  val mem_we_n             = Output(Bool())
-  val mem_dq               = Analog(64.W)
-  val mem_dqs              = Analog(8.W)
-  val mem_dqs_n            = Analog(8.W)
-  val mem_odt              = Output(Bits((1).W))
+  val memory_mem_a                = Output(Bits((14).W))
+  val memory_mem_ba               = Output(Bits((3).W))
+  val memory_mem_ck               = Output(Bits((2).W))
+  val memory_mem_ck_n             = Output(Bits((2).W))
+  val memory_mem_cke              = Output(Bits((1).W))
+  val memory_mem_cs_n             = Output(Bits((1).W))
+  val memory_mem_dm               = Output(Bits((8).W))
+  val memory_mem_ras_n            = Output(Bool())
+  val memory_mem_cas_n            = Output(Bool())
+  val memory_mem_we_n             = Output(Bool())
+  val memory_mem_dq               = Analog(64.W)
+  val memory_mem_dqs              = Analog(8.W)
+  val memory_mem_dqs_n            = Analog(8.W)
+  val memory_mem_odt              = Output(Bits((1).W))
 
   //val reset_n          = Output(Bool())
 }
@@ -195,22 +195,22 @@ class QuartusIsland(c : Seq[AddressSet], val crossing: ClockCrossingType = Async
     //pins to top level
 
     //inouts
-    attach(io.port.mem_dq,blackbox.io.mem_dq)
-    attach(io.port.mem_dqs_n,blackbox.io.mem_dqs_n)
-    attach(io.port.mem_dqs,blackbox.io.mem_dqs)
+    attach(io.port.memory_mem_dq,blackbox.io.memory_mem_dq)
+    attach(io.port.memory_mem_dqs_n,blackbox.io.memory_mem_dqs_n)
+    attach(io.port.memory_mem_dqs,blackbox.io.memory_mem_dqs)
 
     //outputs
-    io.port.mem_a            := blackbox.io.mem_a
-    io.port.mem_ba           := blackbox.io.mem_ba
-    io.port.mem_ras_n        := blackbox.io.mem_ras_n
-    io.port.mem_cas_n        := blackbox.io.mem_cas_n
-    io.port.mem_we_n         := blackbox.io.mem_we_n
-    io.port.mem_ck           := blackbox.io.mem_ck
-    io.port.mem_ck_n         := blackbox.io.mem_ck_n
-    io.port.mem_cke          := blackbox.io.mem_cke
-    io.port.mem_cs_n         := blackbox.io.mem_cs_n
-    io.port.mem_dm           := blackbox.io.mem_dm
-    io.port.mem_odt          := blackbox.io.mem_odt
+    io.port.memory_mem_a            := blackbox.io.memory_mem_a
+    io.port.memory_mem_ba           := blackbox.io.memory_mem_ba
+    io.port.memory_mem_ras_n        := blackbox.io.memory_mem_ras_n
+    io.port.memory_mem_cas_n        := blackbox.io.memory_mem_cas_n
+    io.port.memory_mem_we_n         := blackbox.io.memory_mem_we_n
+    io.port.memory_mem_ck           := blackbox.io.memory_mem_ck
+    io.port.memory_mem_ck_n         := blackbox.io.memory_mem_ck_n
+    io.port.memory_mem_cke          := blackbox.io.memory_mem_cke
+    io.port.memory_mem_cs_n         := blackbox.io.memory_mem_cs_n
+    io.port.memory_mem_dm           := blackbox.io.memory_mem_dm
+    io.port.memory_mem_odt          := blackbox.io.memory_mem_odt
 
     //inputs
     //NO_BUFFER clock
