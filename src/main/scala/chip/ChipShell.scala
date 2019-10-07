@@ -38,8 +38,11 @@ class SwitchChipOverlay(val shell: ChipShell, val name: String, params: GPIOSwit
 class JTAGDebugChipOverlay(val shell: ChipShell, val name: String, params: JTAGDebugOverlayParams)
   extends JTAGDebugOverlay(params)
 
-class AXI4AsMemChipOverlay(val shell: ChipShell, val name: String, params: AXI4AsMemOverlayParams)
+class AXI4AsMemChipOverlay(val shell: ChipShell, val name: String, params: BusAsMemOverlayParams)
   extends AXI4AsMemOverlay(params)
+
+class TLAsMemChipOverlay(val shell: ChipShell, val name: String, params: BusAsMemOverlayParams)
+  extends TLAsMemOverlay(params)
 
 class ChipShell()(implicit p: Parameters) extends IOShell
 {
@@ -52,7 +55,8 @@ class ChipShell()(implicit p: Parameters) extends IOShell
   val tlclk   = Overlay(ClockInputOverlayKey)(new SysClockChipOverlay (_, _, _))
   val led     = Overlay(GPIOLedOverlayKey)   (new LEDChipOverlay      (_, _, _))
   val switch  = Overlay(GPIOSwitchOverlayKey)(new SwitchChipOverlay   (_, _, _))
-  val axi4out = Overlay(AXI4AsMemOverlayKey) (new AXI4AsMemChipOverlay(_, _, _))
+  //val axi4out = Overlay(BusAsMemOverlayKey)  (new AXI4AsMemChipOverlay(_, _, _))
+  val tlout   = Overlay(BusAsMemOverlayKey)  (new TLAsMemChipOverlay  (_, _, _))
   val uart    = Overlay(UARTOverlayKey)      (new UARTChipOverlay     (_, _, _))
   val sdio    = Overlay(SDIOOverlayKey)      (new SDIOChipOverlay     (_, _, _))
   val jtag    = Overlay(JTAGDebugOverlayKey) (new JTAGDebugChipOverlay(_, _, _))
