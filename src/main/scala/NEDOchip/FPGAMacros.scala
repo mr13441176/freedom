@@ -32,18 +32,18 @@ class TLULtoMIG(cacheBlockBytes: Int, TLparams: TLBundleParameters)(implicit p :
   )
 
   // Create a dummy node where we can attach our silly TL port
-  val device = new MemoryDevice
+  //val device = new MemoryDevice
   val node = TLClientNode(Seq.tabulate(1) { channel =>
     TLClientPortParameters(
       clients = Seq(TLClientParameters(
         name = "dummy",
-        sourceId = IdRange(0, 2) // TODO: What is this?
+        sourceId = IdRange(0, 64) // TODO: What is this?
       ))
     )
   })
 
   // Attach to the DDR
-  ddr.buffer.node := node
+  ddr.node := node
 
   lazy val module = new LazyModuleImp(this) {
     val io = IO(new Bundle {
@@ -54,16 +54,16 @@ class TLULtoMIG(cacheBlockBytes: Int, TLparams: TLBundleParameters)(implicit p :
     val depth = ddr.depth
 
     //val mem_tl = Wire(HeterogeneousBag.fromNode(node.in))
-    node.in.foreach {
+    node.out.foreach {
       case  (bundle, _) =>
         bundle.a <> io.tlport.a
         io.tlport.d <> bundle.d
         //bundle.b.bits := (new TLBundleB(TLparams)).fromBits(0.U)
-        bundle.b.ready := false.B
-        bundle.c.valid := false.B
-        bundle.c.bits := 0.U.asTypeOf(new TLBundleC(TLparams))
-        bundle.e.valid := false.B
-        bundle.e.bits := 0.U.asTypeOf(new TLBundleE(TLparams))
+        //bundle.b.ready := false.B
+        //bundle.c.valid := false.B
+        //bundle.c.bits := 0.U.asTypeOf(new TLBundleC(TLparams))
+        //bundle.e.valid := false.B
+        //bundle.e.bits := 0.U.asTypeOf(new TLBundleE(TLparams))
     }
 
     // Create the actual module, and attach the DDR port
@@ -79,8 +79,8 @@ class QuartusDDR extends Bundle {
   val memory_mem_ba               = Output(Bits((3).W))
   val memory_mem_ck               = Output(Bits((2).W))
   val memory_mem_ck_n             = Output(Bits((2).W))
-  val memory_mem_cke              = Output(Bits((1).W))
-  val memory_mem_cs_n             = Output(Bits((1).W))
+  val memory_mem_cke              = Output(Bits((2).W))
+  val memory_mem_cs_n             = Output(Bits((2).W))
   val memory_mem_dm               = Output(Bits((8).W))
   val memory_mem_ras_n            = Output(Bool())
   val memory_mem_cas_n            = Output(Bool())
@@ -88,7 +88,7 @@ class QuartusDDR extends Bundle {
   val memory_mem_dq               = Analog(64.W)
   val memory_mem_dqs              = Analog(8.W)
   val memory_mem_dqs_n            = Analog(8.W)
-  val memory_mem_odt              = Output(Bits((1).W))
+  val memory_mem_odt              = Output(Bits((2).W))
 
   //val reset_n          = Output(Bool())
 }
@@ -96,7 +96,7 @@ class QuartusDDR extends Bundle {
 trait QuartusClocksReset extends Bundle {
   //inputs
   //"NO_BUFFER" clock source (must be connected to IBUF outside of IP)
-  val clk_clk               = Input(Bool())
+  val refclk_clk               = Input(Bool())
   val reset_reset_n         = Input(Bool())
   val dimmclk_clk           = Output(Clock())
 }
@@ -214,7 +214,7 @@ class QuartusIsland(c : Seq[AddressSet], val crossing: ClockCrossingType = Async
 
     //inputs
     //NO_BUFFER clock
-    blackbox.io.clk_clk       := io.ckrst.clk_clk
+    blackbox.io.refclk_clk       := io.ckrst.refclk_clk
     blackbox.io.reset_reset_n := io.ckrst.reset_reset_n
     io.ckrst.dimmclk_clk       := blackbox.io.dimmclk_clk
     blackbox.io.oct_rdn       := io.port.oct_rdn
@@ -223,8 +223,8 @@ class QuartusIsland(c : Seq[AddressSet], val crossing: ClockCrossingType = Async
     io.port.mem_status_local_cal_success := blackbox.io.mem_status_local_cal_success
     io.port.mem_status_local_cal_fail := blackbox.io.mem_status_local_cal_fail
 
-    val awaddr = axi_async.aw.bits.addr - UInt(offset)
-    val araddr = axi_async.ar.bits.addr - UInt(offset)
+    val awaddr = axi_async.aw.bits.addr - offset.U
+    val araddr = axi_async.ar.bits.addr - offset.U
 
     //slave AXI interface write address ports
     blackbox.io.axi4_awid    := axi_async.aw.bits.id
@@ -233,7 +233,7 @@ class QuartusIsland(c : Seq[AddressSet], val crossing: ClockCrossingType = Async
     blackbox.io.axi4_awsize  := axi_async.aw.bits.size
     blackbox.io.axi4_awburst := axi_async.aw.bits.burst
     blackbox.io.axi4_awlock  := axi_async.aw.bits.lock
-    blackbox.io.axi4_awcache := UInt("b0011")
+    blackbox.io.axi4_awcache := "b0011".U
     blackbox.io.axi4_awprot  := axi_async.aw.bits.prot
     blackbox.io.axi4_awqos   := axi_async.aw.bits.qos
     blackbox.io.axi4_awvalid := axi_async.aw.valid
@@ -259,7 +259,7 @@ class QuartusIsland(c : Seq[AddressSet], val crossing: ClockCrossingType = Async
     blackbox.io.axi4_arsize  := axi_async.ar.bits.size
     blackbox.io.axi4_arburst := axi_async.ar.bits.burst
     blackbox.io.axi4_arlock  := axi_async.ar.bits.lock
-    blackbox.io.axi4_arcache := UInt("b0011")
+    blackbox.io.axi4_arcache := "b0011".U
     blackbox.io.axi4_arprot  := axi_async.ar.bits.prot
     blackbox.io.axi4_arqos   := axi_async.ar.bits.qos
     blackbox.io.axi4_arvalid := axi_async.ar.valid
@@ -319,13 +319,13 @@ class TLULtoQuartusPlatform(cacheBlockBytes: Int, TLparams: TLBundleParameters)(
     TLClientPortParameters(
       clients = Seq(TLClientParameters(
         name = "dummy",
-        sourceId = IdRange(0, 2) // TODO: What is this?
+        sourceId = IdRange(0, 64), // TODO: What is this? Maybe 64 is not the right one
       ))
     )
   })
 
   // Attach to the DDR
-  ddr.buffer.node := node
+  ddr.node := node
 
   lazy val module = new LazyModuleImp(this) {
     val io = IO(new Bundle {
@@ -337,16 +337,16 @@ class TLULtoQuartusPlatform(cacheBlockBytes: Int, TLparams: TLBundleParameters)(
     val depth = ddr.depth
 
     //val mem_tl = Wire(HeterogeneousBag.fromNode(node.in))
-    node.in.foreach {
+    node.out.foreach {
       case  (bundle, _) =>
         bundle.a <> io.tlport.a
         io.tlport.d <> bundle.d
         //bundle.b.bits := (new TLBundleB(TLparams)).fromBits(0.U)
-        bundle.b.ready := false.B
-        bundle.c.valid := false.B
-        bundle.c.bits := 0.U.asTypeOf(new TLBundleC(TLparams))
-        bundle.e.valid := false.B
-        bundle.e.bits := 0.U.asTypeOf(new TLBundleE(TLparams))
+        //bundle.b.ready := false.B
+        //bundle.c.valid := false.B
+        //bundle.c.bits := 0.U.asTypeOf(new TLBundleC(TLparams))
+        //bundle.e.valid := false.B
+        //bundle.e.bits := 0.U.asTypeOf(new TLBundleE(TLparams))
     }
 
     // Create the actual module, and attach the port

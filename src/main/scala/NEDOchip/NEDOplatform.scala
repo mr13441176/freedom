@@ -153,7 +153,7 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
 
   // Dedicated SPI Pads
   SPIPinsFromPort(io.pins.qspi, sys.qspi(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 3)
-  SPIPinsFromPort(io.pins.spi, sys.spi(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 0)
+  SPIPinsFromPort(io.pins.spi, sys.spi(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 3)
 
   // JTAG Debug Interface
   val sjtag = sys.debug.systemjtag.get

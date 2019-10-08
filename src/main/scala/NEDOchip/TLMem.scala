@@ -21,7 +21,7 @@ trait CanHaveMasterTLMemPort { this: BaseSubsystem =>
 
     val memTLNode = TLManagerNode(Seq.tabulate(nMemoryChannels) { channel =>
       val base = AddressSet(memPortParams.base, memPortParams.size - 1)
-      val filter = AddressSet(channel * cacheBlockBytes, ~((nMemoryChannels - 1) * cacheBlockBytes))
+      val filter = AddressSet(channel * 128, ~((nMemoryChannels - 1) * 128))
 
       TLManagerPortParameters(
         managers = Seq(TLManagerParameters(
@@ -29,18 +29,15 @@ trait CanHaveMasterTLMemPort { this: BaseSubsystem =>
           resources = device.reg,
           regionType = RegionType.UNCACHED, // cacheable
           executable = true,
-          supportsGet = TransferSizes(1, cacheBlockBytes),
-          supportsPutFull = TransferSizes(1, cacheBlockBytes),
-          supportsPutPartial = TransferSizes(1, cacheBlockBytes)
+          supportsGet = TransferSizes(1, 128),
+          supportsPutFull = TransferSizes(1, 128),
+          supportsPutPartial = TransferSizes(1, 128)
         )),
         beatBytes = memPortParams.beatBytes
       )
     })
 
-    memTLNode := mbus.toFixedWidthPort(Some(portName)) {//.toDRAMController(Some(portName)) {
-      TLBuffer() := TLSourceShrinker(1 << memPortParams.idBits)
-    }
-
+    memTLNode := mbus.toDRAMController(Some(portName))()
     memTLNode
   }
 }
