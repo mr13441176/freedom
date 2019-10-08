@@ -140,7 +140,7 @@ class NEDOwrapper(implicit p :Parameters) extends RawModule {
     // The memory port
     // TODO: This is awfully dirty. I mean it should get the work done
     //system.io.tlport.getElements.head
-    tlport = Some(IO(new TLUL(system.sys.outer.memTLNode.head.in.head._1.params)))
+    tlport = Some(IO(new TLUL(system.sys.outer.memTLNode.in.head._1.params)))
     tlport.get <> system.io.tlport
   }
 }
@@ -187,6 +187,7 @@ class NEDObase(implicit val p :Parameters) extends RawModule {
   // An option to dynamically assign
   var tlportw : Option[TLUL] = None
   var cacheBlockBytesOpt: Option[Int] = None
+  var memdevice: Option[MemoryDevice] = None
 
   // All the modules declared here have this clock and reset
   withClockAndReset(clock, reset) {
@@ -237,6 +238,7 @@ class NEDObase(implicit val p :Parameters) extends RawModule {
 
     // The memory port
     tlportw = Some(system.io.tlport)
+    memdevice = Some(system.sys.outer.memdevice)
   }
   val cacheBlockBytes = 128//cacheBlockBytesOpt.get
 }
@@ -282,7 +284,7 @@ class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
 
   withClockAndReset(clock, reset) {
     // Instance our converter, and connect everything
-    val mod = Module(LazyModule(new TLULtoMIG(cacheBlockBytes, tlportw.get.params)).module)
+    val mod = Module(LazyModule(new TLULtoMIG(cacheBlockBytes, tlportw.get.params, memdevice.get)).module)
 
     // DDR port only
     ddr = Some(IO(new VC707MIGIODDR(mod.depth)))
