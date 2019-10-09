@@ -1,0 +1,21 @@
+# See LICENSE for license details.
+base_dir := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+BUILD_DIR := $(base_dir)/builds/chip
+FPGA_DIR := $(base_dir)/fpga-shells/xilinx
+PROJECT := uec.freedom.u500
+MODEL := ChipShell
+export CONFIG_PROJECT := uec.freedom.u500
+export CONFIG := ChipDesignTop
+export BOARD := vc707
+export BOOTROM_DIR := $(base_dir)/bootrom/freedom-u540-c000-bootloader
+
+rocketchip_dir := $(base_dir)/rocket-chip
+sifiveblocks_dir := $(base_dir)/sifive-blocks
+VSRCS := \
+	$(rocketchip_dir)/src/main/resources/vsrc/AsyncResetReg.v \
+	$(rocketchip_dir)/src/main/resources/vsrc/plusarg_reader.v \
+	$(FPGA_DIR)/common/vsrc/PowerOnResetFPGAOnly.v \
+	$(BUILD_DIR)/$(CONFIG_PROJECT).$(CONFIG).rom.v \
+	$(BUILD_DIR)/$(CONFIG_PROJECT).$(CONFIG).v
+
+include common.mk

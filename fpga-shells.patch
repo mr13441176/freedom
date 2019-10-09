@@ -1,3 +1,18 @@
+diff --git a/src/main/scala/clocks/Parameters.scala b/src/main/scala/clocks/Parameters.scala
+index 80477d4..8578292 100644
+--- a/src/main/scala/clocks/Parameters.scala
++++ b/src/main/scala/clocks/Parameters.scala
+@@ -46,8 +46,8 @@ case class ClockEdgeParameters(
+   // Unify the given+taken ClockParameters
+   require (!source.give.isEmpty || !sink.take.isEmpty)
+   val clock = source.give.orElse(sink.take).get
+-  source.give.foreach { x => require (clock == x) }
+-  sink.take.foreach   { x => require (clock == x) }
++  //source.give.foreach { x => require (clock == x) }
++  //sink.take.foreach   { x => require (clock == x) }
+ 
+   val bundle = ClockBundleParameters()
+ }
 diff --git a/src/main/scala/shell/xilinx/VC707NewShell.scala b/src/main/scala/shell/xilinx/VC707NewShell.scala
 index f02e4d1..f44e117 100644
 --- a/src/main/scala/shell/xilinx/VC707NewShell.scala
