@@ -140,7 +140,7 @@ class NEDOwrapper(implicit p :Parameters) extends RawModule {
     // The memory port
     // TODO: This is awfully dirty. I mean it should get the work done
     //system.io.tlport.getElements.head
-    tlport = Some(IO(new TLUL(system.sys.outer.memTLNode.head.in.head._1.params)))
+    tlport = Some(IO(new TLUL(system.sys.outer.memTLNode.in.head._1.params)))
     tlport.get <> system.io.tlport
   }
 }
@@ -187,6 +187,7 @@ class NEDObase(implicit val p :Parameters) extends RawModule {
   // An option to dynamically assign
   var tlportw : Option[TLUL] = None
   var cacheBlockBytesOpt: Option[Int] = None
+  var memdevice: Option[MemoryDevice] = None
 
   // All the modules declared here have this clock and reset
   withClockAndReset(clock, reset) {
@@ -237,8 +238,9 @@ class NEDObase(implicit val p :Parameters) extends RawModule {
 
     // The memory port
     tlportw = Some(system.io.tlport)
+    memdevice = Some(system.sys.outer.memdevice)
   }
-  val cacheBlockBytes = cacheBlockBytesOpt.get
+  val cacheBlockBytes = 128//cacheBlockBytesOpt.get
 }
 
 class NEDOchip(implicit override val p :Parameters) extends NEDObase {
@@ -273,13 +275,16 @@ class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
   val rst_0 = IO(Input(Bool()))
   val rst_1 = IO(Input(Bool()))
   val rst_2 = IO(Input(Bool()))
+  val rst_3 = IO(Input(Bool()))
   val reset_0 = IBUF(rst_0)
   val reset_1 = IBUF(rst_1)
   val reset_2 = IBUF(rst_2)
+  val reset_3 = IBUF(rst_3)
+
 
   withClockAndReset(clock, reset) {
     // Instance our converter, and connect everything
-    val mod = Module(LazyModule(new TLULtoMIG(cacheBlockBytes, tlportw.get.params)).module)
+    val mod = Module(LazyModule(new TLULtoMIG(cacheBlockBytes, tlportw.get.params, memdevice.get)).module)
 
     // DDR port only
     ddr = Some(IO(new VC707MIGIODDR(mod.depth)))
@@ -293,7 +298,7 @@ class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
     val c = new PLLParameters(
       name ="pll",
       input = PLLInClockParameters(
-        freqMHz = 200.0,
+        freqMHz = 50.0,
         feedback = true
       ),
       req = Seq(
@@ -306,15 +311,17 @@ class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
     pll.io.clk_in1 := sys_clk_i
     pll.io.reset := reset_0
 
+    gpio_out := Cat(reset_0, reset_1, reset_2, reset_3, mod.io.ddrport.init_calib_complete)
+
     // MIG connections, like resets and stuff
     mod.io.ddrport.sys_clk_i := sys_clk_i.asUInt()
-    mod.io.ddrport.aresetn := !ResetCatchAndSync(pll.io.clk_out1.get, reset_0, 20) // TODO: Is delayed, but I am not sure
-    mod.io.ddrport.sys_rst := areset // This is ok
+    mod.io.ddrport.aresetn := reset_0
+    mod.io.ddrport.sys_rst := reset_1
 
     // Main clock and reset assignments
-    clock := pll.io.clk_out1.get // Hopefully this is ok
-    reset := reset_1 | ndreset
-    areset := reset_2 | ndreset
+    clock := pll.io.clk_out1.get
+    reset := reset_2
+    areset := reset_3
   }
 }
 
@@ -322,31 +329,303 @@ class NEDOFPGA(implicit override val p :Parameters) extends NEDObase {
 // NEDODPGAQuartus - Just an adaptation of NEDOchip to the FPGA in Quartus
 // ********************************************************************
 
-class NEDOFPGAQuartus(implicit override val p :Parameters) extends NEDObase {
-  val ddr = IO( new QuartusIO )
-  val clk = IO(Input(Clock()))
-  val reset_0_n = IO(Input(Bool()))
-  val reset_1_n = IO(Input(Bool()))
-  val reset_2_n = IO(Input(Bool()))
+class NEDOFPGAQuartus(implicit val p :Parameters) extends RawModule {
+  ///////// CLOCKS /////////
+  val OSC_50_BANK2 = IO(Input(Clock()))
+  val OSC_50_BANK3 = IO(Input(Clock()))
+  val OSC_50_BANK4 = IO(Input(Clock()))
+  val OSC_50_BANK5 = IO(Input(Clock()))
+  val OSC_50_BANK6 = IO(Input(Clock()))
+  val OSC_50_BANK7 = IO(Input(Clock()))
+  val GCLKIN = IO(Input(Clock()))
+  //val GCLKOUT_FPGA = IO(Output(Clock()))
+  //val SMA_CLKOUT_p = IO(Output(Clock()))
+
+  //////// CPU RESET //////////
+  val CPU_RESET_n = IO(Input(Bool()))
+
+  //////// MAX I/O //////////
+  /*val MAX_CONF_D = IO(Analog((3+1).W))
+  val MAX_I2C_SCLK = IO(Output(Bool()))
+  val MAX_I2C_SDAT = IO(Analog(1.W))*/
+
+  ///////// LED /////////
+  val LED = IO(Output(Bits((7+1).W)))
+
+  ///////// BUTTON /////////
+  val BUTTON = IO(Input(Bits((3+1).W)))
+
+  ///////// SW /////////
+  val SW = IO(Input(Bits((7+1).W)))
+
+  //////////// SLIDE SWITCH x 4 //////////
+  val SLIDE_SW = IO(Input(Bits((3+1).W)))
+
+  //////////// Temperature //////////
+  /*val TEMP_SMCLK = IO(Output(Bool()))
+  val TEMP_SMDAT = IO(Analog(1.W))
+  val TEMP_INT_n = IO(Input(Bool()))*/
+
+  //////////// Current //////////
+  /*val CSENSE_ADC_F0 = IO(Output(Bool()))
+  val CSENSE_SCK = IO(Analog(1.W))
+  val CSENSE_SDI = IO(Output(Bool()))
+  val CSENSE_SDO = IO(Input(Bool()))
+  val CSENSE_CS_n = IO(Output(Bits((1+1).W)))*/
+
+  ///////// FAN /////////
+  //val FAN_CTRL = IO(Output(Bool()))
+
+  //////////// EEPROM //////////
+  /*val EEP_SCL = IO(Output(Bool()))
+  val EEP_SDA = IO(Analog(1.W))*/
+
+  //////////// SDCARD //////////
+  val SD_CLK = IO(Output(Bool()))
+  val SD_MOSI = IO(Output(Bool()))
+  val SD_MISO = IO(Input(Bool()))
+  val SD_CS_N = IO(Output(Bool()))
+  val SD_INTERUPT_N = IO(Input(Bool()))
+  val SD_WP_n = IO(Input(Bool()))
+
+  //////////// Ethernet x 4 //////////
+  /*val ETH_INT_n = IO(Input(Bits((3+1).W)))
+  val ETH_MDC = IO(Output(Bits((3+1).W)))
+  val ETH_MDIO = IO(Analog((3+1).W))
+  val ETH_RST_n = IO(Output(Bool()))
+  val ETH_RX_p = IO(Input(Bits((3+1).W)))
+  val ETH_TX_p = IO(Output(Bits((3+1).W)))*/
+
+  ////////////// PCIe x 8 //////////
+  /*	val PCIE_PREST_n = IO(Input(Bool()))
+    val PCIE_REFCLK_p = IO(Input(Bool()))
+    val PCIE_RX_p = IO(Input(Bits((7+1).W)))
+    val PCIE_SMBCLK = IO(Input(Bool()))
+    val PCIE_SMBDAT = IO(Analog(1.W))
+    val PCIE_TX_p = IO(Output(Bits((7+1).W)))
+    val PCIE_WAKE_n = IO(Output(Bool()))
+  */
+  //////////// Flash and SRAM Address/Data Share Bus //////////
+  /*val FSM_A = IO(Output(Bits((25+1).W)))
+  val FSM_D = IO(Analog((15+1).W))*/
+
+  //////////// Flash Control //////////
+  /*val FLASH_ADV_n = IO(Output(Bool()))
+  val FLASH_CE_n = IO(Output(Bool()))
+  val FLASH_CLK = IO(Output(Bool()))
+  val FLASH_OE_n = IO(Output(Bool()))
+  val FLASH_RESET_n = IO(Output(Bool()))
+  val FLASH_RYBY_n = IO(Input(Bool()))
+  val FLASH_WE_n = IO(Output(Bool()))*/
+
+  //////////// SSRAM Control //////////
+  /*val SSRAM_ADV = IO(Output(Bool()))
+  val SSRAM_BWA_n = IO(Output(Bool()))
+  val SSRAM_BWB_n = IO(Output(Bool()))
+  val SSRAM_CE_n = IO(Output(Bool()))
+  val SSRAM_CKE_n = IO(Output(Bool()))
+  val SSRAM_CLK = IO(Output(Bool()))
+  val SSRAM_OE_n = IO(Output(Bool()))
+  val SSRAM_WE_n = IO(Output(Bool()))*/
+
+  //////////// USB OTG //////////
+  /*val OTG_A = IO(Output(Bits((17+1).W)))
+  val OTG_CS_n = IO(Output(Bool()))
+  val OTG_D = IO(Analog((31+1).W))
+  val OTG_DC_DACK = IO(Output(Bool()))
+  val OTG_DC_DREQ = IO(Input(Bool()))
+  val OTG_DC_IRQ = IO(Input(Bool()))
+  val OTG_HC_DACK = IO(Output(Bool()))
+  val OTG_HC_DREQ = IO(Input(Bool()))
+  val OTG_HC_IRQ = IO(Input(Bool()))
+  val OTG_OE_n = IO(Output(Bool()))
+  val OTG_RESET_n = IO(Output(Bool()))
+  val OTG_WE_n = IO(Output(Bool()))*/
+
+  //////////// SATA //////////
+  /*	val SATA_REFCLK_p = IO(Input(Bool()))
+    val SATA_HOST_RX_p = IO(Input(Bits((1+1).W)))
+    val SATA_HOST_TX_p = IO(Output(Bits((1+1).W)))
+    val SATA_DEVICE_RX_p = IO(Input(Bits((1+1).W)))
+    val SATA_DEVICE_TX_p = IO(Output(Bits((1+1).W)))
+  */
+  //////////// DDR2 SODIMM //////////
+  val M1_DDR2_addr = IO(Output(Bits((15+1).W)))
+  val M1_DDR2_ba = IO(Output(Bits((2+1).W)))
+  val M1_DDR2_cas_n = IO(Output(Bool()))
+  val M1_DDR2_cke = IO(Output(Bits((1+1).W)))
+  val M1_DDR2_clk = IO(Output(Bits((1+1).W)))
+  val M1_DDR2_clk_n = IO(Output(Bits((1+1).W)))
+  val M1_DDR2_cs_n = IO(Output(Bits((1+1).W)))
+  val M1_DDR2_dm = IO(Output(Bits((7+1).W)))
+  val M1_DDR2_dq = IO(Analog((63+1).W))
+  val M1_DDR2_dqs = IO(Analog((7+1).W))
+  val M1_DDR2_dqsn = IO(Analog((7+1).W))
+  val M1_DDR2_odt = IO(Output(Bits((1+1).W)))
+  val M1_DDR2_ras_n = IO(Output(Bool()))
+  //val M1_DDR2_SA = IO(Output(Bits((1+1).W)))
+  //val M1_DDR2_SCL = IO(Output(Bool()))
+  //val M1_DDR2_SDA = IO(Analog(1.W))
+  val M1_DDR2_we_n = IO(Output(Bool()))
+  val M1_DDR2_oct_rdn = IO(Input(Bool()))
+  val M1_DDR2_oct_rup = IO(Input(Bool()))
+
+  //////////// DDR2 SODIMM //////////
+  /*	val M2_DDR2_addr = IO(Output(Bits((15+1).W)))
+    val M2_DDR2_ba = IO(Output(Bits((2+1).W)))
+    val M2_DDR2_cas_n = IO(Output(Bool()))
+    val M2_DDR2_cke = IO(Output(Bits((1+1).W)))
+    val M2_DDR2_clk = IO(Analog((1+1).W))
+    val M2_DDR2_clk_n = IO(Analog((1+1).W))
+    val M2_DDR2_cs_n = IO(Output(Bits((1+1).W)))
+    val M2_DDR2_dm = IO(Output(Bits((7+1).W)))
+    val M2_DDR2_dq = IO(Analog((63+1).W))
+    val M2_DDR2_dqs = IO(Analog((7+1).W))
+    val M2_DDR2_dqsn = IO(Analog((7+1).W))
+    val M2_DDR2_odt = IO(Output(Bits((1+1).W)))
+    val M2_DDR2_ras_n = IO(Output(Bool()))
+    val M2_DDR2_SA = IO(Output(Bits((1+1).W)))
+    val M2_DDR2_SCL = IO(Output(Bool()))
+    val M2_DDR2_SDA = IO(Analog(1.W))
+    val M2_DDR2_we_n = IO(Output(Bool()))
+    val M2_DDR2_oct_rdn = IO(Input(Bool()))
+    val M2_DDR2_oct_rup = IO(Input(Bool()))
+  */
+  ///////// GPIO /////////
+  //val GPIO0_D = IO(Output(Bits((35+1).W)))
+  //val GPIO1_D = IO(Analog((35+1).W))
+  val jtag = IO(new Bundle {
+    val jtag_TDI = (Input(Bool()))
+    val jtag_TDO = (Output(Bool()))
+    val jtag_TCK = (Input(Bool()))
+    val jtag_TMS = (Input(Bool()))
+  })
+  val qspi = IO(new Bundle {
+    val qspi_cs = (Output(UInt(p(PeripherySPIFlashKey).head.csWidth.W)))
+    val qspi_sck = (Output(Bool()))
+    val qspi_miso = (Input(Bool()))
+    val qspi_mosi = (Output(Bool()))
+    val qspi_wp = (Output(Bool()))
+    val qspi_hold = (Output(Bool()))
+  })
+
+  ///////////  EXT_IO /////////
+  //val EXT_IO = IO(Analog(1.W))
+
+  //////////// HSMC_A //////////
+  /*val HSMA_CLKIN_n1 = IO(Input(Bool()))
+  val HSMA_CLKIN_n2 = IO(Input(Bool()))
+  val HSMA_CLKIN_p1 = IO(Input(Bool()))
+  val HSMA_CLKIN_p2 = IO(Input(Bool()))
+  val HSMA_CLKIN0 = IO(Input(Bool()))
+  val HSMA_CLKOUT_n2 = IO(Output(Bool()))
+  val HSMA_CLKOUT_p2 = IO(Output(Bool()))
+  val HSMA_D = IO(Analog((3+1).W))
+  //val HSMA_GXB_RX_p = IO(Input(Bits((3+1).W)))
+  //val HSMA_GXB_TX_p = IO(Output(Bits((3+1).W)))
+  val HSMA_OUT_n1 = IO(Analog(1.W))
+  val HSMA_OUT_p1 = IO(Analog(1.W))
+  val HSMA_OUT0 = IO(Analog(1.W))
+  //val HSMA_REFCLK_p = IO(Input(Bool()))
+  val HSMA_RX_n = IO(Analog((16+1).W))
+  val HSMA_RX_p = IO(Analog((16+1).W))
+  val HSMA_TX_n = IO(Analog((16+1).W))
+  val HSMA_TX_p = IO(Analog((16+1).W))*/
+
+  //////////// HSMC_B //////////
+  /*val HSMB_CLKIN_n1 = IO(Input(Bool()))
+  val HSMB_CLKIN_n2 = IO(Input(Bool()))
+  val HSMB_CLKIN_p1 = IO(Input(Bool()))
+  val HSMB_CLKIN_p2 = IO(Input(Bool()))
+  val HSMB_CLKIN0 = IO(Input(Bool()))
+  val HSMB_CLKOUT_n2 = IO(Output(Bool()))
+  val HSMB_CLKOUT_p2 = IO(Output(Bool()))
+  val HSMB_D = IO(Analog((3+1).W))
+  //val HSMB_GXB_RX_p = IO(Input(Bits((7+1).W)))
+  //val HSMB_GXB_TX_p = IO(Output(Bits((7+1).W)))
+  val HSMB_OUT_n1 = IO(Analog(1.W))
+  val HSMB_OUT_p1 = IO(Analog(1.W))
+  val HSMB_OUT0 = IO(Analog(1.W))
+  //val HSMB_REFCLK_p = IO(Input(Bool()))
+  val HSMB_RX_n = IO(Analog((16+1).W))
+  val HSMB_RX_p = IO(Analog((16+1).W))
+  val HSMB_TX_n = IO(Analog((16+1).W))
+  val HSMB_TX_p = IO(Analog((16+1).W))*/
+
+  //////////// HSMC I2C //////////
+  /*val HSMC_SCL = IO(Output(Bool()))
+  val HSMC_SDA = IO(Analog(1.W))*/
+
+  //////////// 7-Segment Display //////////
+  /*val SEG0_D = IO(Output(Bits((6+1).W)))
+  val SEG1_D = IO(Output(Bits((6+1).W)))
+  val SEG0_DP = IO(Output(Bool()))
+  val SEG1_DP = IO(Output(Bool()))*/
+
+  //////////// Uart //////////
+  //val UART_CTS = IO(Output(Bool()))
+  //val UART_RTS = IO(Input(Bool()))
+  val UART_RXD = IO(Input(Bool()))
+  val UART_TXD = IO(Output(Bool()))
+  
+  val clock = Wire(Clock())
+  val reset = Wire(Bool())
 
   withClockAndReset(clock, reset) {
     // Instance our converter, and connect everything
-    val mod = Module(LazyModule(new TLULtoQuartusPlatform(cacheBlockBytes, tlportw.get.params)).module)
+    val chip = Module(new NEDOchip)
+    val mod = Module(LazyModule(new TLULtoQuartusPlatform(chip.cacheBlockBytes, chip.tlportw.get.params)).module)
+    
+    // Clock and reset (for TL stuff)
+    clock := mod.io.ckrst.dimmclk_clk
+    reset := SLIDE_SW(3)
+    chip.sys_clk := mod.io.ckrst.dimmclk_clk
+    chip.rst_n := !SLIDE_SW(3)
 
-    // DDR port only\
-    ddr <> mod.io.qport
+    // Quartus Platform connections
+    M1_DDR2_addr := mod.io.qport.memory_mem_a
+    M1_DDR2_ba := mod.io.qport.memory_mem_ba
+    M1_DDR2_clk := mod.io.qport.memory_mem_ck
+    M1_DDR2_clk_n := mod.io.qport.memory_mem_ck_n
+    M1_DDR2_cke := mod.io.qport.memory_mem_cke
+    M1_DDR2_cs_n := mod.io.qport.memory_mem_cs_n
+    M1_DDR2_dm := mod.io.qport.memory_mem_dm
+    M1_DDR2_ras_n := mod.io.qport.memory_mem_ras_n
+    M1_DDR2_cas_n := mod.io.qport.memory_mem_cas_n
+    M1_DDR2_we_n := mod.io.qport.memory_mem_we_n
+    attach(M1_DDR2_dq, mod.io.qport.memory_mem_dq)
+    attach(M1_DDR2_dqs, mod.io.qport.memory_mem_dqs)
+    attach(M1_DDR2_dqsn, mod.io.qport.memory_mem_dqs_n)
+    M1_DDR2_odt := mod.io.qport.memory_mem_odt
+    mod.io.qport.oct_rdn := M1_DDR2_oct_rdn
+    mod.io.qport.oct_rup := M1_DDR2_oct_rup
+    mod.io.ckrst.refclk_clk := OSC_50_BANK3.asUInt()
+    mod.io.ckrst.reset_reset_n := CPU_RESET_n
 
     // TileLink Interface from platform
-    mod.io.tlport.a <> tlportw.get.a
-    tlportw.get.d <> mod.io.tlport.d
-
-    // MIG connections, like resets and stuff
-    mod.io.ckrst.clk_clk := clk.asUInt()
-    mod.io.ckrst.reset_reset_n := reset_0_n
-
-    // Main clock and reset assignments
-    clock := mod.io.ckrst.dimmclk_clk
-    reset := !reset_1_n | ndreset
-    areset := !reset_2_n
+    mod.io.tlport.a <> chip.tlport.a
+    chip.tlport.d <> mod.io.tlport.d
+    
+    // The rest of the platform connections
+    val chipshell_led = chip.gpio_out 	// output [7:0]
+    LED := Cat(
+      mod.io.qport.mem_status_local_cal_fail,
+      mod.io.qport.mem_status_local_cal_success,
+      mod.io.qport.mem_status_local_init_done,
+      SLIDE_SW(3),
+      chipshell_led(3,0)
+    )
+    chip.gpio_in := SW(7,0)			// input  [7:0]
+    jtag <> chip.jtag
+    qspi <> chip.qspi
+    chip.uart_rxd := UART_RXD	// UART_TXD
+    UART_TXD := chip.uart_txd 	// UART_RXD
+    // := chip.uart_rtsn 			// output: not used
+    chip.uart_ctsn := false.B 		// input:  notused
+    SD_CLK := chip.sdio.sdio_clk 	// output
+    SD_MOSI := chip.sdio.sdio_cmd 	// output
+    chip.sdio.sdio_dat_0 := SD_MISO 	// input
+    SD_CS_N := chip.sdio.sdio_dat_3 	// output
+    chip.jrst_n := !SLIDE_SW(2)
   }
 }

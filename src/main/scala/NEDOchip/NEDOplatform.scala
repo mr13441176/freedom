@@ -28,8 +28,29 @@ class NEDOSystem(implicit p: Parameters) extends RocketSubsystem
     with HasPeripheryGPIO
 //    with HasPeripheryI2C
 //    with CanHaveMasterAXI4MemPort
-    with CanHaveMasterTLMemPort
+//    with CanHaveMasterTLMemPort
 {
+  // Main memory controller
+
+  val memdevice = new MemoryDevice
+  val mainMemParam = TLManagerPortParameters(
+    managers = Seq(TLManagerParameters(
+      address = AddressSet.misaligned(p(ExtMem).get.master.base,  p(ExtMem).get.master.size),
+      resources = memdevice.reg,
+      regionType = RegionType.UNCACHED, // cacheable
+      executable = true,
+      supportsGet = TransferSizes(1, cacheBlockBytes),
+      supportsPutFull = TransferSizes(1, cacheBlockBytes),
+      supportsPutPartial = TransferSizes(1, cacheBlockBytes),
+      fifoId             = Some(0),
+      mayDenyPut         = true,
+      mayDenyGet         = true
+    )),
+    beatBytes = p(ExtMem).get.master.beatBytes
+  )
+  val memTLNode = TLManagerNode(Seq(mainMemParam))
+  memTLNode := mbus.toDRAMController(Some("tl"))()
+
   // SPI to MMC conversion. TODO: There is an intention from Sifive to do MMC, but has to be manual
   val spiDevs = p(PeripherySPIKey).map { ps => SPI.attach(SPIAttachParams(ps, pbus, ibus.fromAsync))}
   val spiNodes = spiDevs.map { ps => ps.ioNode.makeSink() }
@@ -38,6 +59,7 @@ class NEDOSystem(implicit p: Parameters) extends RocketSubsystem
     Resource(mmc, "reg").bind(ResourceAddress(0))
   }
   val tlclock = new FixedClockResource("tlclk", 50) // 50 is in MHz
+
   // Regular module creation
   override lazy val module = new NEDOSystemModule(this)
 }
@@ -51,10 +73,15 @@ class NEDOSystemModule[+L <: NEDOSystem](_outer: L)
     with HasPeripheryGPIOModuleImp
 //    with HasPeripheryI2CModuleImp
 //    with CanHaveMasterAXI4MemPortModuleImp
-    with CanHaveMasterTLMemPortModuleImp
+//    with CanHaveMasterTLMemPortModuleImp
 {
+  // Main memory controller
+  val mem_tl = IO(HeterogeneousBag.fromNode(outer.memTLNode.in))
+  (mem_tl zip outer.memTLNode.in).foreach { case (io, (bundle, _)) => io <> bundle }
+
   // SPI to MMC conversion
   val spi  = outer.spiNodes.zipWithIndex.map  { case(n,i) => n.makeIO()(ValName(s"spi_$i")) }
+
   // Regular module creation
   // Reset vector is set to the location of the mask rom
   val maskROMParams = p(PeripheryMaskROMKey)
@@ -98,7 +125,7 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
 
   // Not actually sure if "sys.outer.memTLNode.head.in.head._1.params" is the
   // correct way to get the params... TODO: Get the correct way
-  val io = IO(new NEDOPlatformIO(sys.outer.memTLNode.head.in.head._1.params) )
+  val io = IO(new NEDOPlatformIO(sys.outer.memTLNode.in.head._1.params) )
 
   // Add in debug-controlled reset.
   sys.reset := ResetCatchAndSync(clock, reset.toBool, 20)
@@ -115,21 +142,18 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
   // and the ports are exposed inside the "foreach". Do not worry, there is
   // only one memory (unless you configure multiple memories).
   sys.mem_tl.foreach{
-    case i =>
-      i.foreach{
-        case ioi:TLBundle =>
-          // Connect outside the ones that can be untied
-          io.tlport <> ioi
-          // Tie off the channels we dont need...
-          // ... I mean, we did tell the TLNodeParams that we only want Get and Put
+    case ioi:TLBundle =>
+      // Connect outside the ones that can be untied
+      io.tlport <> ioi
+      // Tie off the channels we dont need...
+      // ... I mean, we did tell the TLNodeParams that we only want Get and Put
 
-          ioi.b.bits := 0.U.asTypeOf(new TLBundleB(sys.outer.memTLNode.head.in.head._1.params))
-          ioi.b.valid := false.B
-          ioi.c.ready := false.B
-          ioi.e.ready := false.B
-          // Important NOTE: We did check connections until the mbus in verilog
-          // and there is no usage of channels B, C and E (except for some TL Monitors)
-    }
+      ioi.b.bits := 0.U.asTypeOf(new TLBundleB(sys.outer.memTLNode.in.head._1.params))
+      ioi.b.valid := false.B
+      ioi.c.ready := false.B
+      ioi.e.ready := false.B
+      // Important NOTE: We did check connections until the mbus in verilog
+      // and there is no usage of channels B, C and E (except for some TL Monitors)
   }
 
   //-----------------------------------------------------------------------
@@ -153,7 +177,7 @@ class NEDOPlatform(implicit val p: Parameters) extends Module {
 
   // Dedicated SPI Pads
   SPIPinsFromPort(io.pins.qspi, sys.qspi(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 3)
-  SPIPinsFromPort(io.pins.spi, sys.spi(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 0)
+  SPIPinsFromPort(io.pins.spi, sys.spi(0), clock = sys.clock, reset = sys.reset.toBool, syncStages = 3)
 
   // JTAG Debug Interface
   val sjtag = sys.debug.systemjtag.get
