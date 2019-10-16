@@ -28,6 +28,7 @@ BOOTROM_DIR ?= ""
 
 base_dir := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 export rocketchip_dir := $(base_dir)/rocket-chip
+mem_gen := $(rocketchip_dir)/scripts/vlsi_mem_gen
 SBT ?= java -jar $(rocketchip_dir)/sbt-launch.jar ++2.12.4
 
 # Build firrtl.jar and put it where chisel3 can find it.
@@ -54,7 +55,11 @@ firrtl: $(firrtl)
 # Build .v
 verilog := $(BUILD_DIR)/$(CONFIG_PROJECT).$(CONFIG).v
 $(verilog): $(firrtl) $(FIRRTL_JAR)
-	$(FIRRTL) -i $(firrtl) -o $@ -X verilog
+	#$(FIRRTL) -i $(firrtl) -o $@ -X verilog
+
+	#for gen ram with blackboxes
+	$(FIRRTL) -i $(firrtl) -o $@ -X verilog --infer-rw $(MODEL) --repl-seq-mem -c:$(MODEL):-o:$(BUILD_DIR)/$(CONFIG_PROJECT).$(CONFIG).ram.conf
+	$(mem_gen) $(BUILD_DIR)/$(CONFIG_PROJECT).$(CONFIG).ram.conf >> $@.tmp && mv $@.tmp $(BUILD_DIR)/$(CONFIG_PROJECT).$(CONFIG).ram.v
 ifneq ($(PATCHVERILOG),"")
 	$(PATCHVERILOG)
 endif
