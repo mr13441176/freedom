@@ -4,6 +4,7 @@ import freechips.rocketchip.config._
 import freechips.rocketchip.devices.debug._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.rocket._
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.system._
 import freechips.rocketchip.tile._
@@ -15,7 +16,7 @@ import sifive.blocks.devices.uart._
 class ChipDefaultConfig extends Config(
   new WithJtagDTM            ++
   new WithNMemoryChannels(1) ++
-  new WithNBigCores(2)       ++
+//  new WithNBigCores(2)       ++
   new BaseConfig
 )
 
@@ -35,6 +36,35 @@ class ChipPeripherals extends Config((site, here, up) => {
     size = x"4000_0000",  // 1GB
     beatBytes = site(MemoryBusKey).beatBytes,
     idBits = 4), 1))
+
+// instead of calling "new WithNBigCores(2) ++"
+// using this to modify the content of cpu: modify the cache size
+  case RocketTilesKey => {
+    val big = RocketTileParams(
+      core   = RocketCoreParams(mulDiv = Some(MulDivParams(
+        mulUnroll = 8,
+        mulEarlyOut = true,
+        divEarlyOut = true))),
+      // Cache size = nSets * nWays * CacheBlockBytes
+      // nSets = (default) 64;
+      // nWays = (default) 4;
+      // CacheBlockBytes = (default) 64;
+      // => default cache size = 64 * 4 * 64 = 16KBytes
+      dcache = Some(DCacheParams(
+        // => dcache size = 32 * 2 * 64 = 4KBytes
+        nSets = 32,
+        nWays = 2,
+        rowBits = site(SystemBusKey).beatBits,
+        nMSHRs = 0,
+        blockBytes = site(CacheBlockBytes))),
+      icache = Some(ICacheParams(
+        // => icache size = 32 * 2 * 64 = 4KBytes
+        nSets = 32,
+        nWays = 2,
+        rowBits = site(SystemBusKey).beatBits,
+        blockBytes = site(CacheBlockBytes))))
+    List.tabulate(2)(i => big.copy(hartId = i))
+  }
 })
 
 // Chip Configs
