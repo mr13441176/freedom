@@ -63,7 +63,7 @@ class ChipPeripherals extends Config((site, here, up) => {
         nWays = 2,
         rowBits = site(SystemBusKey).beatBits,
         blockBytes = site(CacheBlockBytes))))
-    List.tabulate(2)(i => big.copy(hartId = i))
+    List.tabulate(4)(i => big.copy(hartId = i))
   }
 })
 
