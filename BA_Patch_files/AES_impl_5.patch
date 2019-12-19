@@ -1,0 +1,52 @@
+--- bootrom/freedom-u540-c000-bootloader/Makefile	2019-12-18 17:19:26.373182586 +0900
++++ ../freedom_tmp/bootrom/freedom-u540-c000-bootloader/Makefile	2019-12-04 23:06:43.490039847 +0900
+@@ -3,18 +3,12 @@
+ # SPDX-License-Identifier: GPL-2.0-or-later
+ # See the file LICENSE for further information
+ 
+-ifeq ($(BOARD),)
+-FPGA_FLAG=
+-else
+-FPGA_FLAG=-DFPGA
+-endif
+-
+ CROSSCOMPILE?=riscv64-unknown-elf-
+ CC=${CROSSCOMPILE}gcc
+ LD=${CROSSCOMPILE}ld
+ OBJCOPY=${CROSSCOMPILE}objcopy
+ OBJDUMP=${CROSSCOMPILE}objdump
+-CFLAGS=-I. -Ilib/ -O2 -ggdb -march=rv64imafdc -mabi=lp64d -Wall -mcmodel=medany -mexplicit-relocs $(FPGA_FLAG)
++CFLAGS=-I. -Ilib/ -O2 -ggdb -march=rv64imafdc -mabi=lp64d -Wall -mcmodel=medany -mexplicit-relocs
+ CCASFLAGS=-I. -mcmodel=medany -mexplicit-relocs
+ LDFLAGS=-nostdlib -nostartfiles
+ 
+@@ -54,14 +48,19 @@
+ 	lib/ed25519/keypair.o \
+ 	lib/ed25519/sc.o \
+ 	lib/ed25519/sign.o \
+-	lib/ed25519/verify.o
++	lib/ed25519/verify.o\
++	lib/aes/aes.o
+ 
+ 
+ H=$(wildcard *.h */*.h)
+ 
+-all: zsbl.bin fsbl.bin
+-
+-romgen: $(clk) FPGAzsbl.hex FPGAfsbl.bin
++all:
++	sed -i '/#define\sFPGA/c\\/\/#define FPGA' sifive/platform.h
++	make zsbl.bin fsbl.bin
++
++romgen: $(clk)
++	sed -i '/#define\sFPGA/c\#define FPGA' sifive/platform.h
++	make FPGAzsbl.hex FPGAfsbl.bin
+ 	cp FPGAzsbl.hex $(BUILD_DIR)/
+ 	$(rocketchip_dir)/scripts/vlsi_rom_gen $(ROMCONF) $(BUILD_DIR)/FPGAzsbl.hex > $(BUILD_DIR)/rom.v
+ 
+@@ -129,4 +128,4 @@
+ 
+ clean::
+ 	rm -f */*.o */*.dtb zsbl.bin zsbl.elf zsbl.asm fsbl.bin fsbl.elf fsbl.asm lib/version.c
+-	rm -f FPGAzsbl.bin FPGAzsbl.elf FPGAzsbl.hex FPGAfsbl.bin FPGAfsbl.elf tl_clock.h $(clk)
++	rm -f FPGAzsbl.bin FPGAzsbl.elf FPGAzsbl.hex FPGAfsbl.bin FPGAfsbl.elf tl_clock.h
