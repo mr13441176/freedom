@@ -1,0 +1,10 @@
+--- bootrom/freedom-u540-c000-bootloader/uart/uart.h	2019-12-18 17:19:26.381182536 +0900
++++ ../freedom_tmp/bootrom/freedom-u540-c000-bootloader/uart/uart.h	2019-12-05 12:44:26.963306995 +0900
+@@ -14,6 +14,7 @@
+ void uart_puts(void* uartctrl, const char * s);
+ void uart_put_hex(void* uartctrl, uint32_t hex);
+ void uart_put_hex64(void* ua64ctrl, uint64_t hex);
++void uart_put_hex8(void* uartctrl, uint8_t hex);
+ 
+ #endif /* !__ASSEMBLER__ */
+ 

@@ -1,0 +1,31 @@
+--- bootrom/freedom-u540-c000-bootloader/fsbl/main.c	2019-12-18 18:51:30.356315636 +0900
++++ ../freedom_tmp/bootrom/freedom-u540-c000-bootloader/fsbl/main.c	2019-12-05 15:55:48.998270072 +0900
+@@ -37,6 +37,9 @@
+ 
+ #include "lib/sha3/sha3.h"
+ #include "lib/ed25519/ed25519.h"
++//BA 04/12/2019 #1
++#include "lib/aes/aes.h"
++//BA 04/12/2019 #1 end 
+ 
+ #ifndef FPGA
+ #define NUM_CORES 5
+@@ -418,13 +421,13 @@
+ #endif
+ 
+   puts("Loading boot payload");
++  puts("\r\nTesting AES on multicore");
+   ux00boot_load_gpt_partition((void*) PAYLOAD_DEST, &gpt_guid_sifive_bare_metal, peripheral_input_khz);
+-  UART0_REG(UART_REG_CLKDIVSEL) = 5;
+   puts("\r\n\n");
+-
+-  secure_boot_main();
+-
+-  slave_main(0, dtb);
++  //UART0_REG(UART_REG_CLKDIVSEL) = 5;
++  test_all();
++  //secure_boot_main();
++  //slave_main(0, dtb);
+ 
+   //dead code
+   return 0;

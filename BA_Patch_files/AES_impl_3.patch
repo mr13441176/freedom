@@ -1,0 +1,17 @@
+--- bootrom/freedom-u540-c000-bootloader/uart/uart.c	2019-12-18 17:19:26.381182536 +0900
++++ ../freedom_tmp/bootrom/freedom-u540-c000-bootloader/uart/uart.c	2019-12-05 15:27:45.423576112 +0900
+@@ -49,6 +49,14 @@
+   }
+ }
+ 
++void uart_put_hex8(void* uartctrl, uint8_t hex) {
++  int num_nibbles = sizeof(hex) * 2;
++  for (int nibble_idx = num_nibbles - 1; nibble_idx >= 0; nibble_idx--) {
++    char nibble = (hex >> (nibble_idx * 4)) & 0xf;
++    uart_putc(uartctrl, (nibble < 0xa) ? ('0' + nibble) : ('a' + nibble - 0xa));
++  }
++}
++
+ void uart_put_hex64(void *uartctrl, uint64_t hex){
+   uart_put_hex(uartctrl,hex>>32);
+   uart_put_hex(uartctrl,hex&0xFFFFFFFF);
