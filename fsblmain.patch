@@ -1,0 +1,11 @@
+--- ../freedom2/bootrom/freedom-u540-c000-bootloader/fsbl/main.c	2019-12-19 14:29:20.354984960 +0900
++++ bootrom/freedom-u540-c000-bootloader/fsbl/main.c	2019-12-18 18:51:30.356315636 +0900
+@@ -419,7 +419,7 @@
+ 
+   puts("Loading boot payload");
+   ux00boot_load_gpt_partition((void*) PAYLOAD_DEST, &gpt_guid_sifive_bare_metal, peripheral_input_khz);
+-
++  UART0_REG(UART_REG_CLKDIVSEL) = 5;
+   puts("\r\n\n");
+ 
+   secure_boot_main();
