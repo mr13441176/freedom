@@ -15,6 +15,8 @@ import sifive.blocks.devices.uart._
 
 // Default FreedomU500Config
 class FreedomU500Config extends Config(
+  new WithNBreakpoints(8) ++
+  new WithAsynchronousRocketTiles(8,3) ++
   new WithJtagDTM            ++
   new WithNMemoryChannels(1) ++
   new WithNBigCores(4)       ++

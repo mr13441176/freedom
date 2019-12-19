@@ -1,0 +1,28 @@
+--- sifive-blocks/src/main/scala/devices/uart/UART.scala	2019-12-19 13:41:13.239880654 +0900
++++ ../freedom/sifive-blocks/src/main/scala/devices/uart/UART.scala	2019-12-18 18:35:55.068196135 +0900
+@@ -65,6 +65,11 @@
+ 
+   val div = Reg(init = UInt(divisorInit, c.divisorBits))
+ 
++  //BA 31/10/2019 part1
++  val clkdivselReg = Reg(init = UInt(0,3))
++  val clkdivvalReg = Reg(init = UInt(0,3))
++  //end BA 31/10/2019 part 1
++
+   private val stopCountBits = log2Up(c.stopBits)
+   private val txCountBits = log2Floor(c.nTxEntries) + 1
+   private val rxCountBits = log2Floor(c.nRxEntries) + 1
+@@ -125,7 +130,12 @@
+ 
+     UARTCtrlRegs.div -> Seq(
+       RegField(c.divisorBits, div,
+-                 RegFieldDesc("div","Baud rate divisor",reset=Some(divisorInit))))
++                 RegFieldDesc("div","Baud rate divisor",reset=Some(divisorInit)))),
++
++    //BA 31/10/2019 part 3
++    UARTCtrlRegs.clkdivsel -> Seq(RegField(3, clkdivselReg, RegFieldDesc("clkdivsel","Input of Clock divider select",reset=Some(0)))),
++    UARTCtrlRegs.clkdivval -> Seq(RegField(3, clkdivvalReg, RegFieldDesc("clkdivval","Input of Clock divider value",reset=Some(0)))),
++    //end BA 31/10/2019 part 3
+   )
+ }}
+ 
