@@ -1,0 +1,28 @@
+Quick Instructions:
+1. Clone this repo to local PC:
+	git clone https://github.com/mr13441176/freedom.git <optional_local_folder_name>
+	cd <local_folder_name>
+	git checkout keystone-fpga-dfs-dba
+	. update.sh   // update submodule, patch scala files to integrate DFS (add control registers and define their addr in C header), change JTAG pin to XADC  
+2. Make verilog and original .bit (still required to make mcs, time consuming, need to fix later):
+	. setenv.sh
+	make CONFIG=DevKitU500FPGADesign_WithDevKit100MHz MODEL=VC707BaseShell BOOTROM_DIR=`pwd`/bootrom/freedom-u540-c000-bootloader BUILD_DIR=`pwd`/builds/vc707-u500devkit-nopcie-keystoneboot -f Makefile.vc707-u500devkit verilog -j8
+	make CONFIG=DevKitU500FPGADesign_WithDevKit100MHz MODEL=VC707BaseShell BOOTROM_DIR=`pwd`/bootrom/freedom-u540-c000-bootloader BUILD_DIR=`pwd`/builds/vc707-u500devkit-nopcie-keystoneboot -f Makefile.vc707-u500devkit mcs -j8
+	// after this, normal .bit and .mcs are generated (Core tiles are changed to Async though) 
+3. Patch verilog file to add and connect ClkDivider module:
+	patch builds/vc707-u500devkit-nopcie-keystoneboot/sifive.freedom.unleashed.DevKitU500FPGADesign_WithDevKit100MHz.v BA_Patch_files/topmodule.patch
+4. Open project with Vivado, regenerate .bit and .mcs. Then program the board and test U500 with DFS
+5. Implement AES in FSBL (or even ZSBL):
+	. AES_impl.sh // patch *.c, *.h and bootloader Makefile
+	cd bootrom/freedom-u540-c000-bootloader
+	make clean
+	cd ../..
+	make CONFIG=DevKitU500FPGADesign_WithDevKit100MHz MODEL=VC707BaseShell BOOTROM_DIR=`pwd`/bootrom/freedom-u540-c000-bootloader BUILD_DIR=`pwd`/builds/vc707-u500devkit-nopcie-keystoneboot_tmp -f Makefile.vc707-u500devkit verilog -j8
+	make CONFIG=DevKitU500FPGADesign_WithDevKit100MHz MODEL=VC707BaseShell BOOTROM_DIR=`pwd`/bootrom/freedom-u540-c000-bootloader BUILD_DIR=`pwd`/builds/vc707-u500devkit-nopcie-keystoneboot_tmp -f Makefile.vc707-u500devkit romgen -j8
+	// after this, new FPGAfsbl.bin with AES are generated in bootrom/freedom-u540-c000-bootloader
+6. Copy FPGAfsbl.bin to sdb4 of SD card, reset board to test AES
+	sudo dd if=FPGAfsbl.bin of=/dev/sdb4 bs=4096 conv=fsync
+
+!!!!!!!!!!!!!!!!!!!!!
+	:D  ENJOY :D
+!!!!!!!!!!!!!!!!!!!!!
