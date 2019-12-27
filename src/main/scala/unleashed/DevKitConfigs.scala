@@ -19,7 +19,7 @@ class FreedomU500Config extends Config(
   new WithAsynchronousRocketTiles(8,3) ++
   new WithJtagDTM            ++
   new WithNMemoryChannels(1) ++
-  new WithNBigCores(4)       ++
+  new WithNBigCores(2)       ++
   new BaseConfig
 )
 

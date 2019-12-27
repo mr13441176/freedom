@@ -1,0 +1,16 @@
+--- bootrom/freedom-u540-c000-bootloader/memory_fpga.lds	2019-12-27 13:00:12.746403956 +0900
++++ ../freedom5/bootrom/freedom-u540-c000-bootloader/memory_fpga.lds	2019-12-26 18:19:04.854261795 +0900
+@@ -9,11 +9,11 @@
+   test_ctrl (rw) : ORIGIN = 0x4000, LENGTH = 0x1000
+   maskrom_mem (rx) : ORIGIN = 0x78000000, LENGTH = 0x2000
+   clint_ctrl (rw) : ORIGIN = 0x2000000, LENGTH = 0x10000
+-  ccache_sideband (rwx) : ORIGIN = 0x90000000, LENGTH = 0x1e0000
++  ccache_sideband (rwx) : ORIGIN = 0x88000000, LENGTH = 0x1e0000
+   plic_ctrl (rw) : ORIGIN = 0xc000000, LENGTH = 0x4000000
+   uart0_ctrl (rw) : ORIGIN = 0x64000000, LENGTH = 0x1000
+   spi0_ctrl (rw) : ORIGIN = 0x64001000, LENGTH = 0x1000
+   gpio_ctrl (rw) : ORIGIN = 0x64002000, LENGTH = 0x1000
+   error_mem (rwx) : ORIGIN = 0x3000, LENGTH = 0x1000
+-  memory_mem (rwx) : ORIGIN = 0x80000000, LENGTH = 0x40000000
++  memory_mem (rwx) : ORIGIN = 0x80000000, LENGTH = 0x10000000
+ }
