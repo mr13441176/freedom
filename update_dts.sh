@@ -1,1 +1,0 @@
-patch builds/vc707-u500devkit-nopcie-keystoneboot/sifive.freedom.unleashed.DevKitU500FPGADesign_WithDevKit100MHz.dts BA_Patch_files/devicetree.patch

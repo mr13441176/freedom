@@ -1,0 +1,11 @@
+--- DevKitConfigs.scala	2020-02-22 15:21:14.646130000 +0900
++++ DevKitConfigs2.scala	2020-01-03 20:48:46.390130000 +0900
+@@ -19,7 +19,7 @@
+   new WithAsynchronousRocketTiles(8,3) ++
+   new WithJtagDTM            ++
+   new WithNMemoryChannels(1) ++
+-  new WithNBigCores(2)       ++
++  new WithNBigCores(1)       ++
+   new BaseConfig
+ )
+ 

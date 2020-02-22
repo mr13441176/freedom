@@ -1,8 +1,8 @@
 /////////////////////////////////////////////////////
 // Description: 27/12/2019
 // Follow this will obtain system with:
-//    - 2 RV64 cores
-//    - using 256MB Ram
+//    - 1 RV64 cores
+//    - using 128MB Ram
 //    - has DFS
 //    - has AES in fsbl
 /////////////////////////////////////////////////////
@@ -12,18 +12,22 @@ Quick Instructions:
 	git clone https://github.com/mr13441176/freedom.git <optional_local_folder_name>
 	cd <local_folder_name>
 	git checkout keystone-fpga-dfs-dba
-	. update.sh   // update submodule, patch scala files to integrate DFS (add control registers and define their addr in C header), change JTAG pin to XADC, redude 4 cores to 2 cores, reduce SDRAM 1GB to 256MB, move fsbl.bin location from 0x90000000 to 0x88000000  
+	. update.sh   // update submodule, patch scala files to integrate DFS (add control registers and define their addr in C header), change JTAG pin to XADC, redude 4 cores to 1 cores, activate UART Rx, reduce SDRAM 1GB to 128MB, move fsbl.bin location from 0x90000000 to 0x88000000  
 2. Make verilog and original .bit (still required to make mcs, time consuming, need to fix later):
 	. setenv.sh
-	make CONFIG=DevKitU500FPGADesign_WithDevKit100MHz MODEL=VC707BaseShell BOOTROM_DIR=`pwd`/bootrom/freedom-u540-c000-bootloader BUILD_DIR=`pwd`/builds/vc707-u500devkit-nopcie-keystoneboot -f Makefile.vc707-u500devkit verilog -j8
-	. update_dts.sh // update the generated device tree
-	make CONFIG=DevKitU500FPGADesign_WithDevKit100MHz MODEL=VC707BaseShell BOOTROM_DIR=`pwd`/bootrom/freedom-u540-c000-bootloader BUILD_DIR=`pwd`/builds/vc707-u500devkit-nopcie-keystoneboot -f Makefile.vc707-u500devkit mcs -j8
+	make CONFIG=DevKitU500FPGADesign_WithDevKit25MHz MODEL=VC707BaseShell BOOTROM_DIR=`pwd`/bootrom/freedom-u540-c000-bootloader BUILD_DIR=`pwd`/builds/vc707-u500devkit-nopcie-keystoneboot -f Makefile.vc707-u500devkit verilog -j8
+	######// update the generated device tree by modify the .dts 
+	L12: memory@80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x10000000>;
+	##########################################################  
+	. AES_impl.sh // patch *.c, *.h and bootloader Makefile  // add AES to fsbl
+	make CONFIG=DevKitU500FPGADesign_WithDevKit25MHz MODEL=VC707BaseShell BOOTROM_DIR=`pwd`/bootrom/freedom-u540-c000-bootloader BUILD_DIR=`pwd`/builds/vc707-u500devkit-nopcie-keystoneboot -f Makefile.vc707-u500devkit mcs -j8
 	// after this, normal .bit and .mcs are generated (Core tiles are changed to Async though) (25MB DRAM and 2 cores, no DFS yet)
 3. Patch verilog file to add and connect ClkDivider module:
 	patch builds/vc707-u500devkit-nopcie-keystoneboot/sifive.freedom.unleashed.DevKitU500FPGADesign_WithDevKit100MHz.v BA_Patch_files/topmodule.patch
 4. Open project with Vivado, regenerate .bit and .mcs. Then program the board and test U500 with DFS
-5. Implement AES in FSBL (or even ZSBL):
-	. AES_impl.sh // patch *.c, *.h and bootloader Makefile
+5. modify firmware if necessary:
 	cd bootrom/freedom-u540-c000-bootloader
 	make clean
 	cd ../..

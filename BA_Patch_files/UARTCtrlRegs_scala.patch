@@ -1,11 +1,12 @@
---- sifive-blocks/src/main/scala/devices/uart/UARTCtrlRegs.scala	2019-12-19 13:41:13.239880654 +0900
-+++ ../freedom/sifive-blocks/src/main/scala/devices/uart/UARTCtrlRegs.scala	2019-12-18 18:36:25.932056122 +0900
-@@ -12,4 +12,8 @@
+--- UARTCtrlRegs.scala	2020-02-22 15:40:44.044466000 +0900
++++ UARTCtrlRegs2.scala	2020-01-03 20:38:51.070253000 +0900
+@@ -12,4 +12,9 @@
    val ie     = 0x10
    val ip     = 0x14
    val div    = 0x18
 +  //BA 31/10/2019 part 2
 +  val clkdivsel = 0x20
 +  val clkdivval = 0x24
++  val aestrigger = 0x28
 +  //end BA 31/10/2019 part 2
  }

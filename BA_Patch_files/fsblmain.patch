@@ -1,20 +1,46 @@
---- ../freedom2/bootrom/freedom-u540-c000-bootloader/fsbl/main.c	2019-12-19 14:29:20.354984960 +0900
-+++ bootrom/freedom-u540-c000-bootloader/fsbl/main.c	2019-12-18 18:51:30.356315636 +0900
-@@ -41,7 +41,7 @@
+--- main.c	2020-02-22 15:40:38.720480000 +0900
++++ main2.c	2020-02-07 16:02:42.179317000 +0900
+@@ -37,11 +37,14 @@
+ 
+ #include "lib/sha3/sha3.h"
+ #include "lib/ed25519/ed25519.h"
++//BA 04/12/2019 #1
++#include "lib/aes/aes.h"
++//BA 04/12/2019 #1 end 
+ 
  #ifndef FPGA
  #define NUM_CORES 5
  #else
 -#define NUM_CORES 4
-+#define NUM_CORES 2
++#define NUM_CORES 1
  #include "tl_clock.h"
  #define F_CLK TL_CLK/1000
  #endif
-@@ -419,7 +419,7 @@
+@@ -332,6 +335,7 @@
+   // Post the serial number and build info
+   extern const char * gitid;
+   UART0_REG(UART_REG_TXCTRL) = UART_TXEN;
++  UART0_REG(UART_REG_RXCTRL) = UART_RXEN;
+ 
+   puts("\r\nSiFive FSBL:       ");
+   puts(date);
+@@ -418,13 +422,14 @@
+ #endif
  
    puts("Loading boot payload");
++  puts("\r\nTesting AES on multicore");
    ux00boot_load_gpt_partition((void*) PAYLOAD_DEST, &gpt_guid_sifive_bare_metal, peripheral_input_khz);
 -
-+  UART0_REG(UART_REG_CLKDIVSEL) = 5;
    puts("\r\n\n");
+-
+-  secure_boot_main();
+-
+-  slave_main(0, dtb);
++  //UART0_REG(UART_REG_CLKDIVSEL) = 5;
++  //UART0_REG(UART_REG_CLKDIVVAL) = 3;
++  test_all();
++  //secure_boot_main();
++  //slave_main(0, dtb);
  
-   secure_boot_main();
+   //dead code
+   return 0;

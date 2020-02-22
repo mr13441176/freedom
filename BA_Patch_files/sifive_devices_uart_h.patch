@@ -1,12 +1,13 @@
---- ../freedom2/bootrom/freedom-u540-c000-bootloader/sifive/devices/uart.h	2019-12-19 14:29:20.358984958 +0900
-+++ bootrom/freedom-u540-c000-bootloader/sifive/devices/uart.h	2019-12-18 18:48:28.280199616 +0900
-@@ -14,6 +14,10 @@
+--- uart.h	2020-02-22 15:40:38.720480000 +0900
++++ uart2.h	2020-01-03 20:50:49.406352000 +0900
+@@ -14,6 +14,11 @@
  #define UART_REG_IE             0x10
  #define UART_REG_IP             0x14
  #define UART_REG_DIV            0x18
 +// BA 31/10/2019 part 4
 +#define UART_REG_CLKDIVSEL      0x20
 +#define UART_REG_CLKDIVVAL      0x24
++#define AES_REG_TRIGGER         0x28
 +// BA 31/10/2019 part 4 end
  
  /* TXCTRL register */

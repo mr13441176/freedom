@@ -1,11 +1,11 @@
---- bootrom/freedom-u540-c000-bootloader/sifive/platform_fpga.h	2019-12-27 13:00:12.746403956 +0900
-+++ ../freedom5/bootrom/freedom-u540-c000-bootloader/sifive/platform_fpga.h	2019-12-26 17:40:21.575439028 +0900
+--- platform_fpga.h	2020-02-22 15:40:38.720480000 +0900
++++ platform_fpga2.h	2020-01-04 18:02:50.562508000 +0900
 @@ -31,7 +31,7 @@
   *****************************************************************************/
  
  // CPU info
 -#define NUM_CORES 4
-+#define NUM_CORES 2
++#define NUM_CORES 1
  #define MAX_HART_ID 4
  #define GLOBAL_INT_SIZE 59
  #define GLOBAL_INT_MAX_PRIORITY 7
@@ -14,7 +14,7 @@
  #define CCACHE_CTRL_ADDR _AC(0x2010000,UL)
  #define CCACHE_CTRL_SIZE _AC(0x1000,UL)*/
 -#define CCACHE_SIDEBAND_ADDR _AC(0x90000000,UL)
-+#define CCACHE_SIDEBAND_ADDR _AC(0x88000000,UL)
++#define CCACHE_SIDEBAND_ADDR _AC(0x8C000000,UL)
  #define CCACHE_SIDEBAND_SIZE _AC(0x1e0000,UL)
  /*#define CHIPLINK_MEM0_ADDR _AC(0x40000000,UL)
  #define CHIPLINK_MEM0_SIZE _AC(0x10000000,UL)
